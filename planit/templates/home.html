@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Home - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="page-head greeting"><h1>Hello, {{ g.user.display_name }}</h1></div>
+  <div class="empty-state">
+    <h2>Nothing Here Yet</h2>
+    <p>Your projects will show up here.</p>
+  </div>
+{% endblock %}

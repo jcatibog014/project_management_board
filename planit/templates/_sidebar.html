@@ -1,0 +1,34 @@
+{% from "_icons.html" import logo, icon %}
+{% from "_macros.html" import avatar, csrf %}
+{% set page = request.endpoint %}
+<aside class="sidebar">
+  <div class="sidebar-top">
+    <a class="logo" href="{{ url_for('main.home') }}">{{ logo() }} Plan-It</a>
+    <button class="menu-button" type="button" data-menu-button aria-expanded="false" aria-controls="side-nav" hidden>
+      <span aria-hidden="true">&#9776;</span> Menu
+    </button>
+  </div>
+  <div class="sidebar-menu" id="side-nav">
+    <nav aria-label="Main">
+      <ul class="side-links">
+        <li><a href="{{ url_for('main.home') }}"{% if page == 'main.home' %} aria-current="page"{% endif %}>{{ icon('home') }} Home</a></li>
+      </ul>
+    </nav>
+    <div class="sidebar-foot">
+      {# <details> opens and closes without JavaScript. app.js also closes it on an outside click. #}
+      <details class="user-menu" data-popover>
+        <summary>
+          {{ avatar(g.user) }}
+          <span class="user-menu-name"><span class="visually-hidden">Account menu for </span>{{ g.user.display_name }}</span>
+        </summary>
+        <div class="user-menu-items">
+          <a href="{{ url_for('auth.settings') }}">Settings</a>
+          <form method="post" action="{{ url_for('auth.logout') }}">
+            {{ csrf() }}
+            <button type="submit">Log out</button>
+          </form>
+        </div>
+      </details>
+    </div>
+  </div>
+</aside>
