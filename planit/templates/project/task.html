@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, avatar %}
+{% from "_icons.html" import icon %}
+{% from "_task_card.html" import due_badge with context %}
+{% from "_activity.html" import activity_line with context %}
+{% block title %}{{ task.key }} {{ task.title }} - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <p class="kicker"><a href="{{ url_for('tasks.board', project_id=project.id) }}">{{ project.name }}</a> &middot; {{ task.key }}</p>
+      <h1 class="task-title">{{ task.title }}</h1>
+    </div>
+    <div class="head-actions">
+      {% if can.can_delete_task(access, task) %}
+        <form method="post" action="{{ url_for('tasks.delete', project_id=project.id, number=task.number) }}" data-confirm="Delete {{ task.key }}? Its history stays, but the task is gone.">
+          {{ csrf() }}<button class="button button-danger" type="submit">{{ icon('trash', 16) }} Delete</button>
+        </form>
+      {% endif %}
+      {% if can.can_edit_task(access, task) %}
+        <a class="button button-quiet" href="{{ url_for('tasks.edit', project_id=project.id, number=task.number) }}">{{ icon('pencil', 16) }} Edit</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="task-layout">
+    <div class="task-main">
+      <section class="card">
+        {% if task.description %}
+          <div class="task-body">{{ task.description|markdown }}</div>
+        {% else %}
+          <p class="muted">No description.{% if can.can_edit_task(access, task) %} <a href="{{ url_for('tasks.edit', project_id=project.id, number=task.number) }}">Add one</a>{% endif %}</p>
+        {% endif %}
+      </section>
+      {% block task_sections %}{% endblock %}
+      <section class="card">
+        <h2 class="section-head">History</h2>
+        <ul class="feed">
+          {% for entry in history %}{{ activity_line(entry, show_task=False) }}{% endfor %}
+        </ul>
+      </section>
+    </div>
+
+    <aside class="side-panel">
+      <section class="card">
+        <dl class="facts">
+          <div>
+            <dt>Status</dt>
+            <dd><span class="status-pill status-{{ task.status }}">{{ workflow.name(task.status) }}</span></dd>
+          </div>
+          {% if moves %}
+            <div class="moves">
+              {% for to, label in moves %}
+                <form method="post" action="{{ url_for('tasks.move', project_id=project.id, number=task.number) }}">
+                  {{ csrf() }}
+                  <input type="hidden" name="to" value="{{ to }}">
+                  <button class="button {{ 'button-positive' if to == 'done' else 'button-quiet' }}" type="submit">
+                    <span class="status-pill status-{{ to }}"></span> {{ label }}</button>
+                </form>
+              {% endfor %}
+            </div>
+          {% elif not task.is_done and access.writable %}
+            <p class="move-note">{{ workflow.move_problem(access, task, workflow.TRANSITIONS[task.status][-1]) }}</p>
+          {% endif %}
+          <div>
+            <dt>Assignee</dt>
+            <dd>
+              {% if can.can_assign_anyone(access) %}
+                <form method="post" action="{{ url_for('tasks.assign', project_id=project.id, number=task.number) }}" class="add-row">
+                  {{ csrf() }}
+                  <label class="visually-hidden" for="assignee">Assignee</label>
+                  <select name="assignee_id" id="assignee" data-auto-submit>
+                    <option value="">Nobody yet</option>
+                    {% for user in people %}<option value="{{ user.id }}"{% if user.id == task.assignee_id %} selected{% endif %}>{{ user.display_name }}</option>{% endfor %}
+                  </select>
+                  <button class="button button-quiet" type="submit" data-auto-submit-button>Save</button>
+                </form>
+              {% else %}
+                <span class="person">{{ avatar(task.assignee, 'small') }} {{ task.assignee.display_name if task.assignee else 'Nobody yet' }}</span>
+                {% if can.can_take_task(access, task) %}
+                  <form method="post" action="{{ url_for('tasks.assign', project_id=project.id, number=task.number) }}" class="section-gap">
+                    {{ csrf() }}<button class="button button-small" type="submit" name="action" value="take">Take it</button>
+                  </form>
+                {% elif can.can_drop_task(access, task) %}
+                  <form method="post" action="{{ url_for('tasks.assign', project_id=project.id, number=task.number) }}" class="section-gap">
+                    {{ csrf() }}<button class="button button-quiet button-small" type="submit" name="action" value="drop">Hand back</button>
+                  </form>
+                {% endif %}
+              {% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt>Deadline</dt>
+            <dd>{% if task.due_date %}{{ task.due_date|nice_date }} {{ due_badge(task) }}{% else %}<span class="muted">None</span>{% endif %}</dd>
+          </div>
+          {% block task_facts %}{% endblock %}
+          <div>
+            <dt>Made by</dt>
+            <dd class="small">{{ task.reporter.display_name if task.reporter else 'Someone who left' }}, {{ task.created_at|nice_date }}</dd>
+          </div>
+          {% if task.completed_at %}
+            <div><dt>Done</dt><dd class="small">{{ task.completed_at|nice_date }}</dd></div>
+          {% endif %}
+        </dl>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

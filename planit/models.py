@@ -6,7 +6,10 @@
       ▼                                                ▼
     projects ──< project_members >── users          (one person shares a project, with one role)
       │
-      └──< invites                                  (one-time links that add a person with a role)
+      ├──< invites                                  (one-time links that add a person with a role)
+      ├──< wip_limits                               (at most N tasks in a column)
+      ├──< activity                                 (the project's history)
+      └──< tasks ── assignee_id, reporter_id ──> users
 
 A user is one login. Who may do what in a project is never stored on the
 user: it comes from these links, and permissions.effective_role() picks the
@@ -14,8 +17,8 @@ highest one. The owner is projects.owner_id, so there is exactly one.
 """
 from datetime import date, datetime
 
-from sqlalchemy import (Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Table,
-                        Text)
+from sqlalchemy import (Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text,
+                        UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .dates import utcnow
@@ -162,3 +165,79 @@ class Invite(Base):
     project: Mapped[Project] = relationship()
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_id])
     used_by: Mapped[User | None] = relationship(foreign_keys=[used_by_id])
+
+
+# ---------- Tasks ----------
+
+# The workflow's columns, in order. workflow.py says which moves are allowed.
+BACKLOG, TODO, IN_PROGRESS, REVIEW, DONE = "backlog", "todo", "in_progress", "review", "done"
+STATUSES = (BACKLOG, TODO, IN_PROGRESS, REVIEW, DONE)
+STATUS_RULE = "status IN ('backlog', 'todo', 'in_progress', 'review', 'done')"
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint(STATUS_RULE, name="status"),
+        # WEB-12 is unique inside its project.
+        UniqueConstraint("project_id", "number"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(12), default=TODO)
+    # Deleting a person leaves their tasks unassigned, not deleted.
+    assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    due_date: Mapped[date | None] = mapped_column(Date, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    project: Mapped[Project] = relationship()
+    assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id])
+    reporter: Mapped[User | None] = relationship(foreign_keys=[reporter_id])
+
+    @property
+    def key(self):
+        return f"{self.project.key}-{self.number}"
+
+    @property
+    def is_done(self):
+        return self.status == DONE
+
+
+class WipLimit(Base):
+    """A Work in Progress limit: at most this many tasks in one column."""
+    __tablename__ = "wip_limits"
+    __table_args__ = (CheckConstraint(STATUS_RULE, name="status"), CheckConstraint("max_tasks > 0", name="positive"))
+
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(12), primary_key=True)
+    max_tasks: Mapped[int] = mapped_column(Integer)
+
+
+class Activity(Base):
+    """One line of a project's history: who did what to which task, and when.
+    It outlives the task: a deleted task keeps its lines (task_id becomes NULL,
+    and note still has its title)."""
+    __tablename__ = "activity"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"), index=True)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    verb: Mapped[str] = mapped_column(String(20))  # created, moved, assigned, ... (activity.py)
+    from_status: Mapped[str | None] = mapped_column(String(12))
+    to_status: Mapped[str | None] = mapped_column(String(12))
+    other_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    note: Mapped[str] = mapped_column(String(200), default="")  # the task's key and title at the time
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+    project: Mapped[Project] = relationship()
+    task: Mapped[Task | None] = relationship()
+    actor: Mapped[User | None] = relationship(foreign_keys=[actor_id])
+    other_user: Mapped[User | None] = relationship(foreign_keys=[other_user_id])

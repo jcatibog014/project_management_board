@@ -31,6 +31,24 @@
       </form>
     </section>
 
+    <section class="setting" id="limits">
+      <div class="setting-text">
+        <h2>Column Limits</h2>
+        <p>Work in Progress limits stop a column from filling up, so work gets finished before more starts. Leave empty for no limit.</p>
+      </div>
+      <form method="post" action="{{ url_for('tasks.set_limits', project_id=project.id) }}">
+        {{ csrf() }}
+        <fieldset class="stack plain-fieldset"{% if not can.can_set_limits(access) %} disabled{% endif %}>
+          <div class="field-row">
+            {% for status in ('todo', 'in_progress', 'review') %}
+              {{ field('limit_' ~ status, workflow.name(status), limits.get(status, ''), type='number', attrs='min="1" max="99" inputmode="numeric"') }}
+            {% endfor %}
+          </div>
+          <div class="form-actions"><button class="button" type="submit">Save limits</button></div>
+        </fieldset>
+      </form>
+    </section>
+
     {% if can.is_owner(access) %}
       <section class="setting">
         <div class="setting-text">

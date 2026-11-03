@@ -1,0 +1,43 @@
+{# A task on the board. The whole card links to the task page; the ⋯ menu moves it
+   without JavaScript, and app.js adds drag and drop (data-moves lists where it may go). #}
+{% from "_macros.html" import avatar, csrf %}
+{% from "_icons.html" import icon %}
+{% macro due_badge(task) %}
+  {% if task.due_date %}
+    {% set days = (task.due_date - today()).days %}
+    <span class="due {% if task.is_done %}due-done{% elif days < 0 %}due-late{% elif days <= 2 %}due-soon{% endif %}"
+          title="Due {{ task.due_date|nice_date }}">{{ icon('clock', 13) }} {{ task.due_date|due_label }}</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro task_card(task, access, moves) %}
+<article class="task-card status-{{ task.status }}" id="task-{{ task.number }}"
+         {% if moves %}draggable="true" data-moves="{{ moves|map(attribute=0)|join(' ') }}"
+         data-move-url="{{ url_for('tasks.move', project_id=task.project_id, number=task.number) }}"{% endif %}>
+  <div class="task-card-top">
+    <span class="task-key">{{ task.key }}</span>
+    {% if moves %}
+      <details class="move-menu" data-popover>
+        <summary class="icon-button" aria-label="Move {{ task.key }}">{{ icon('more', 16) }}</summary>
+        <div class="move-menu-items">
+          <p>Move to</p>
+          {% for to, label in moves %}
+            <form method="post" action="{{ url_for('tasks.move', project_id=task.project_id, number=task.number) }}">
+              {{ csrf() }}
+              <input type="hidden" name="to" value="{{ to }}">
+              <input type="hidden" name="next" value="{{ url_for('tasks.board', project_id=task.project_id) }}">
+              <button type="submit"><span class="status-pill status-{{ to }}"></span>{{ label }}</button>
+            </form>
+          {% endfor %}
+        </div>
+      </details>
+    {% endif %}
+  </div>
+  <a class="task-card-title" href="{{ url_for('tasks.show', project_id=task.project_id, number=task.number) }}">{{ task.title }}</a>
+  <div class="task-card-meta">
+    {{ due_badge(task) }}
+    {{ caller() if caller is defined else '' }}
+    {{ avatar(task.assignee, 'small') }}
+  </div>
+</article>
+{% endmacro %}

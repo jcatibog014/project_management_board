@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_activity.html" import activity_line with context %}
+{% from "project/_head.html" import project_head with context %}
+{% block title %}Activity - {{ project.name }} - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  {{ project_head(project, access, 'activity') }}
+  {% if entries %}
+    <section class="card">
+      <ul class="feed">
+        {% for entry in entries %}{{ activity_line(entry) }}{% endfor %}
+      </ul>
+    </section>
+    {% if entries|length >= 100 %}<p class="muted small section-gap">Showing the newest 100.</p>{% endif %}
+  {% else %}
+    <div class="empty-state"><h2>Nothing Has Happened Yet</h2><p>Add a task and its story starts here.</p></div>
+  {% endif %}
+{% endblock %}

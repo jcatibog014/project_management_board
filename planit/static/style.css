@@ -474,7 +474,7 @@ progress.progress::-moz-progress-bar { background: var(--done); border-radius: 9
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(16rem, 85vw); gap: 0.875rem;
   overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 0.75rem; align-items: start;
 }
-@media (min-width: 56rem) { .board { grid-auto-columns: minmax(15rem, 1fr); scroll-snap-type: none; } }
+@media (min-width: 56rem) { .board { grid-auto-columns: minmax(12.5rem, 1fr); scroll-snap-type: none; } }
 .column {
   scroll-snap-align: start; background: color-mix(in srgb, var(--surface-2) 85%, transparent);
   border: 1px solid var(--border); border-top: 3px solid var(--s); border-radius: var(--radius);
@@ -757,3 +757,4 @@ a.stat:hover { border-color: var(--accent); }
 .filters .form-actions { margin-left: auto; }
 .field-row { align-items: end; }
 input[type="date"] { height: var(--control-height); padding-top: 0; padding-bottom: 0; }
+.move-message { margin-top: 0.75rem; }

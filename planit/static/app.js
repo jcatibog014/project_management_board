@@ -104,8 +104,78 @@ function setUpProjectKind() {
   update();
 }
 
+// The board: drag a card to another column. Each card says where it may go
+// (data-moves, from workflow.allowed_moves); other columns fade while dragging.
+// The server checks everything again, and the page reloads to show the truth.
+function setUpBoard() {
+  const board = document.querySelector("[data-board]");
+  if (!board) return;
+  const csrf = document.querySelector('input[name="csrf_token"]');
+  const message = document.querySelector("[data-move-message]");
+  const columns = [...board.querySelectorAll(".column")];
+  let dragged = null;
+
+  const show = (text) => {
+    message.textContent = text;
+    message.hidden = false;
+    message.classList.add("flash");
+  };
+  const clear = () => columns.forEach((column) => column.classList.remove("drop-ok", "drop-no"));
+
+  board.querySelectorAll(".task-card[draggable]").forEach((card) => {
+    card.addEventListener("dragstart", (event) => {
+      dragged = card;
+      card.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", card.id);
+      const allowed = card.dataset.moves.split(" ");
+      columns.forEach((column) => {
+        if (column.contains(card)) return;
+        column.classList.add(allowed.includes(column.dataset.status) ? "drop-ok" : "drop-no");
+      });
+    });
+    card.addEventListener("dragend", () => {
+      card.classList.remove("is-dragging");
+      dragged = null;
+      clear();
+    });
+  });
+
+  columns.forEach((column) => {
+    column.addEventListener("dragover", (event) => {
+      if (dragged && column.classList.contains("drop-ok")) event.preventDefault();
+    });
+    column.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      if (!dragged || !column.classList.contains("drop-ok")) return;
+      const card = dragged;
+      column.querySelector("[data-column-list]").prepend(card);
+      clear();
+      const body = new FormData();
+      body.append("to", column.dataset.status);
+      try {
+        const response = await fetch(card.dataset.moveUrl, {
+          method: "POST",
+          body,
+          headers: { Accept: "application/json", "X-CSRF-Token": csrf ? csrf.value : "" },
+        });
+        const answer = await response.json();
+        if (!answer.ok) {
+          show(answer.message);
+          setTimeout(() => window.location.reload(), 1600);
+          return;
+        }
+        window.location.reload();
+      } catch (error) {
+        show("That didn't save. Please check your connection and try again.");
+      }
+    });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   setUpProjectKind();
+  setUpBoard();
   setUpTheme();
   setUpMenu();
   setUpPopovers();

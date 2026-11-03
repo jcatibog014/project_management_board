@@ -111,6 +111,47 @@ def can_leave_project(access):
     return access.role is not None and access.role != OWNER
 
 
+# ---------- Tasks (moving them between columns is in workflow.py) ----------
+
+def _mine(access, task):
+    user_id = access.user.id if access.user else None
+    return user_id is not None and user_id in (task.reporter_id, task.assignee_id)
+
+
+def can_create_task(access):
+    return access.writable and access.at_least(MEMBER)
+
+
+def can_edit_task(access, task):
+    """Managers edit any task; a Member edits the ones they made or were given."""
+    return access.writable and (access.at_least(MANAGER) or (access.role == MEMBER and _mine(access, task)))
+
+
+def can_delete_task(access, task):
+    return access.writable and access.at_least(MANAGER)
+
+
+def can_assign_anyone(access):
+    """Give a task to anyone in the project (or to nobody)."""
+    return access.writable and access.at_least(MANAGER)
+
+
+def can_take_task(access, task):
+    """"Take it": a Member gives an unassigned, unfinished task to themselves."""
+    return access.writable and access.at_least(MEMBER) and task.assignee_id is None and task.status != "done"
+
+
+def can_drop_task(access, task):
+    """A Member can hand back a task they were given (it becomes unassigned)."""
+    return (access.writable and access.role == MEMBER and access.user is not None
+            and task.assignee_id == access.user.id and task.status != "done")
+
+
+def can_set_limits(access):
+    """Work in Progress limits."""
+    return access.writable and access.at_least(MANAGER)
+
+
 # ---------- People ----------
 
 def can_manage_people(access):

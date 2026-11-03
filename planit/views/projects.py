@@ -6,7 +6,7 @@ name never leaks. Something you can see but may not do is a 403.
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 from sqlalchemy import select
 
-from .. import db, invites, permissions as can, projects
+from .. import db, invites, permissions as can, projects, tasks, workflow
 from ..auth import login_required, not_demo
 from ..dates import utcnow
 from ..models import COLORS, MEMBER, PERSONAL, TEAM, Project, ProjectMember, ProjectTeam, Team, \
@@ -53,8 +53,9 @@ def form_choice(name, allowed):
 @login_required
 def index():
     s = db.session()
-    return render_template("projects.html", active=projects.visible(s, g.user),
-                           archived=projects.visible(s, g.user, archived=True))
+    active, archived = projects.visible(s, g.user), projects.visible(s, g.user, archived=True)
+    return render_template("projects.html", active=active, archived=archived,
+                           stats=tasks.project_stats(s, active + archived))
 
 
 @bp.route("/projects/new", methods=["GET", "POST"])
@@ -293,7 +294,8 @@ def settings(project_id):
     candidates = [person.user for person in projects.people(s, project)
                   if not person.is_owner and person.direct_role]
     return render_template("project/settings.html", project=project, access=access, values=values,
-                           errors=errors, colors=COLORS, candidates=candidates), 400 if errors else 200
+                           errors=errors, colors=COLORS, candidates=candidates,
+                           limits=workflow.limits(s, project)), 400 if errors else 200
 
 
 @bp.post("/projects/<int:project_id>/archive")

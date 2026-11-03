@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from planit import auth, create_app, db, permissions
-from planit.models import TEAM, Project, ProjectMember, ProjectTeam, Team, User
+from planit.models import TEAM, Project, ProjectMember, ProjectTeam, Task, Team, User
 
 # Tests use a fresh SQLite file per test. To check everything on PostgreSQL
 # too, set TEST_DATABASE_URL to an EMPTY Neon branch (its tables are dropped
@@ -121,6 +121,25 @@ def make_team(app, creator_id, name="Design Team", member_ids=()):
         s.add(team)
         s.commit()
         return team.id
+
+
+def make_task(app, project_id, reporter_id, title="A task", status="todo", assignee_id=None, **fields):
+    """A task straight in the database (no history). Returns its number."""
+    with app.app_context():
+        s = db.session()
+        project = s.get(Project, project_id)
+        task = Task(project_id=project_id, number=project.next_number, title=title, status=status,
+                    reporter_id=reporter_id, assignee_id=assignee_id, **fields)
+        project.next_number += 1
+        s.add(task)
+        s.commit()
+        return task.number
+
+
+def get_task(app, project_id, number):
+    with app.app_context():
+        s = db.session()
+        return s.scalar(select(Task).where(Task.project_id == project_id, Task.number == number))
 
 
 def role_of(app, user_id, project_id):
