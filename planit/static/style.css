@@ -751,3 +751,9 @@ a.stat:hover { border-color: var(--accent); }
 .or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .demo-card p { color: var(--muted); font-size: 0.875rem; margin-bottom: 0.75rem; }
 .welcome-flash { width: 100%; max-width: 25rem; }
+.section-gap { margin-top: 0.75rem; }
+.filters input, .filters select { font-size: 0.9375rem; font-weight: 400; color: var(--text); }
+.filters label { flex: 1 1 12rem; max-width: 26rem; }
+.filters .form-actions { margin-left: auto; }
+.field-row { align-items: end; }
+input[type="date"] { height: var(--control-height); padding-top: 0; padding-bottom: 0; }

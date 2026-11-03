@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "project/_head.html" import project_head with context %}
+{% block title %}{{ project.name }} - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  {{ project_head(project, access, 'board') }}
+  <div class="empty-state"><h2>No Tasks Yet</h2></div>
+{% endblock %}

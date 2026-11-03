@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, textarea %}
+{% from "project/_head.html" import project_head with context %}
+{% block title %}Settings - {{ project.name }} - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  {{ project_head(project, access, 'settings') }}
+  {% set editable = can.can_edit_project(access) %}
+  <div class="settings">
+    <section class="setting">
+      <div class="setting-text">
+        <h2>Project Details</h2>
+        <p>{% if editable %}Managers and the owner can change these.{% else %}Only Managers and the owner can change these.{% endif %}</p>
+      </div>
+      <form method="post">
+        {{ csrf() }}
+        <fieldset class="stack plain-fieldset"{% if not editable %} disabled{% endif %}>
+          {{ field('name', 'Name', values.name, errors.name, attrs='required maxlength="80"') }}
+          <div class="field-row">
+            {{ field('key', 'Key', values.key, errors.key, hint='Like WEB', attrs='maxlength="5" required') }}
+            <label class="field">
+              <span class="field-label">Colour</span>
+              <select name="color">
+                {% for color in colors %}<option value="{{ color }}"{% if color == values.color %} selected{% endif %}>{{ color|title }}</option>{% endfor %}
+              </select>
+            </label>
+            {{ field('due_date', 'Deadline', values.due_date|input_date, errors.due_date, type='date', hint='Optional') }}
+          </div>
+          {{ textarea('description', 'Description', values.description, errors.description, rows=3) }}
+          <div class="form-actions"><button class="button" type="submit">Save project</button></div>
+        </fieldset>
+      </form>
+    </section>
+
+    {% if can.is_owner(access) %}
+      <section class="setting">
+        <div class="setting-text">
+          <h2>Project Kind</h2>
+          <p>{% if project.is_team %}A Team project is shared. It can be Personal again once nobody else is in it.{% else %}A Personal project is only yours. Make it a Team project to share it.{% endif %}</p>
+        </div>
+        <form method="post" action="{{ url_for('projects.change_kind', project_id=project.id) }}" class="form-actions">
+          {{ csrf() }}
+          <button class="button button-quiet" type="submit">{{ 'Make it personal' if project.is_team else 'Make it a team project' }}</button>
+        </form>
+      </section>
+
+      {% if project.is_team %}
+        <section class="setting">
+          <div class="setting-text">
+            <h2>Owner</h2>
+            <p>Give the project to someone who was added to it. You stay on as a Manager.</p>
+          </div>
+          {% if candidates %}
+            <form method="post" action="{{ url_for('projects.transfer', project_id=project.id) }}" class="stack"
+                  data-confirm="Give {{ project.name }} to someone else? Only they can give it back.">
+              {{ csrf() }}
+              <label class="field"><span class="field-label">New owner</span>
+                <select name="user_id">{% for user in candidates %}<option value="{{ user.id }}">{{ user.display_name }} (@{{ user.username }})</option>{% endfor %}</select>
+              </label>
+              <div class="form-actions"><button class="button button-quiet" type="submit">Transfer ownership</button></div>
+            </form>
+          {% else %}
+            <p class="muted small">Add someone on the Members tab first. People who only come in through a Team can't be the owner.</p>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      <section class="setting">
+        <div class="setting-text">
+          <h2>Archive</h2>
+          <p>{% if project.is_archived %}Bring the project back so people can work on it again.{% else %}Done with it? An archived project is read-only and moves to the bottom of Projects.{% endif %}</p>
+        </div>
+        <form method="post" action="{{ url_for('projects.archive', project_id=project.id) }}" class="form-actions">
+          {{ csrf() }}
+          <button class="button button-quiet" type="submit">{{ 'Bring back project' if project.is_archived else 'Archive project' }}</button>
+        </form>
+      </section>
+
+      <section class="setting setting-danger">
+        <div class="setting-text">
+          <h2>Delete Project</h2>
+          <p>This deletes every task, comment and link in it, for everyone. It can't be undone.</p>
+        </div>
+        <form method="post" action="{{ url_for('projects.delete', project_id=project.id) }}" class="stack">
+          {{ csrf() }}
+          {{ field('confirm_name', 'Type the name to confirm', '', hint=project.name, attrs='autocomplete="off" required') }}
+          <div class="form-actions"><button class="button button-danger" type="submit">Delete project</button></div>
+        </form>
+      </section>
+    {% elif project.is_team %}
+      <section class="setting">
+        <div class="setting-text">
+          <h2>Owner</h2>
+          <p>{{ project.owner.display_name }} owns this project. Only the owner can archive or delete it.</p>
+        </div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -92,7 +92,20 @@ function setUpCopy() {
   });
 }
 
+// New Project: the people and Teams choice only shows for a Team project.
+function setUpProjectKind() {
+  const choices = document.querySelectorAll("[data-kind]");
+  const teamOnly = document.querySelector("[data-team-only]");
+  if (!choices.length || !teamOnly) return;
+  const update = () => {
+    teamOnly.hidden = !document.querySelector('[data-kind][value="team"]').checked;
+  };
+  choices.forEach((choice) => choice.addEventListener("change", update));
+  update();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  setUpProjectKind();
   setUpTheme();
   setUpMenu();
   setUpPopovers();

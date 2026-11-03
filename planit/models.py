@@ -1,17 +1,35 @@
 """The data model: every table, as Python classes (SQLAlchemy 2.0).
 
-    users
+    users ──< team_members >── teams            (many-to-many: a Team is a group of people)
+      │                          │
+      │ owner_id                 └──< project_teams >──┐   (a Team shares a project, with one role)
+      ▼                                                ▼
+    projects ──< project_members >── users          (one person shares a project, with one role)
+      │
+      └──< invites                                  (one-time links that add a person with a role)
 
-A user is one login. Who may do what in a project comes later, from the
-people and Teams the project is shared with (see permissions.py).
+A user is one login. Who may do what in a project is never stored on the
+user: it comes from these links, and permissions.effective_role() picks the
+highest one. The owner is projects.owner_id, so there is exactly one.
 """
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Table,
+                        Text)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .dates import utcnow
 from .db import Base
+
+# Roles in a project, lowest first. OWNER is never stored in a table: it is projects.owner_id.
+VIEWER, MEMBER, MANAGER, OWNER = "viewer", "member", "manager", "owner"
+ROLES = (VIEWER, MEMBER, MANAGER, OWNER)
+RANK = {role: number for number, role in enumerate(ROLES)}
+SHARED_ROLES = (VIEWER, MEMBER, MANAGER)  # what a person or a Team can be given
+ROLE_RULE = "role IN ('viewer', 'member', 'manager')"
+
+PERSONAL, TEAM = "personal", "team"
+COLORS = ("blue", "teal", "green", "yellow", "orange", "red", "purple", "pink", "gray")
 
 
 class User(Base):
@@ -39,3 +57,108 @@ class User(Base):
 
     def __repr__(self):
         return f"<User {self.username}>"
+
+
+# A plain many-to-many link: who is in which Team. Deleting either side deletes the link.
+team_members = Table(
+    "team_members", Base.metadata,
+    Column("team_id", ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True),
+)
+
+
+class Team(Base):
+    """A saved group of people (e.g. "Design Team"). Sharing a project with a
+    Team gives everyone in it access at once; leaving the Team takes it away."""
+    __tablename__ = "teams"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60))
+    # The person who made it manages who is in it.
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    created_by: Mapped[User] = relationship()
+    members: Mapped[list[User]] = relationship(secondary=team_members, order_by=User.display_name)
+
+
+class Project(Base):
+    __tablename__ = "projects"
+    __table_args__ = (CheckConstraint("kind IN ('personal', 'team')", name="kind"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    # A short code that starts every task's number: WEB-12.
+    key: Mapped[str] = mapped_column(String(5))
+    description: Mapped[str] = mapped_column(Text, default="")
+    kind: Mapped[str] = mapped_column(String(10), default=PERSONAL)
+    color: Mapped[str] = mapped_column(String(10), default="blue")
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    due_date: Mapped[date | None] = mapped_column(Date)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # The number the next task gets (WEB-1, WEB-2, ...). Numbers are never reused.
+    next_number: Mapped[int] = mapped_column(Integer, default=1)
+
+    owner: Mapped[User] = relationship()
+    members: Mapped[list["ProjectMember"]] = relationship(back_populates="project", cascade="all, delete-orphan",
+                                                          passive_deletes=True)
+    teams: Mapped[list["ProjectTeam"]] = relationship(back_populates="project", cascade="all, delete-orphan",
+                                                      passive_deletes=True)
+
+    @property
+    def is_team(self):
+        return self.kind == TEAM
+
+    @property
+    def is_archived(self):
+        return self.archived_at is not None
+
+
+class ProjectMember(Base):
+    """One person shares a project, with one role. (The owner is not here.)"""
+    __tablename__ = "project_members"
+    __table_args__ = (CheckConstraint(ROLE_RULE, name="role"),)
+
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
+    role: Mapped[str] = mapped_column(String(10))
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    project: Mapped[Project] = relationship(back_populates="members")
+    user: Mapped[User] = relationship()
+
+
+class ProjectTeam(Base):
+    """A whole Team shares a project, with one role for everyone in it."""
+    __tablename__ = "project_teams"
+    __table_args__ = (CheckConstraint(ROLE_RULE, name="role"),)
+
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True, index=True)
+    role: Mapped[str] = mapped_column(String(10))
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    project: Mapped[Project] = relationship(back_populates="teams")
+    team: Mapped[Team] = relationship()
+
+
+class Invite(Base):
+    """A one-time link that adds whoever opens it to a project. Only a hash of
+    the token is stored (invites.py)."""
+    __tablename__ = "invites"
+    __table_args__ = (CheckConstraint(ROLE_RULE, name="role"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(10))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    used_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    project: Mapped[Project] = relationship()
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_id])
+    used_by: Mapped[User | None] = relationship(foreign_keys=[used_by_id])

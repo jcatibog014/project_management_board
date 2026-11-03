@@ -389,5 +389,8 @@ def set_password_command(username):
 
 
 def init_app(app):
+    from . import permissions
+
     app.jinja_env.globals["csrf_token"] = csrf_token
+    app.jinja_env.globals["can"] = permissions
     app.cli.add_command(set_password_command)

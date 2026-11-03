@@ -64,13 +64,13 @@ def create_app(test_config=None):
         raise RuntimeError("Set the DATABASE_URL environment variable on Render (Neon's connection string).")
 
     from . import auth, db, formatting
-    from .views import main
+    from .views import main, projects, tasks, teams
 
     db.init_app(app)
     auth.init_app(app)
     formatting.init_app(app)
     # auth comes first: its before_request (load_user) must run before the others'.
-    for blueprint in (auth.bp, main.bp):
+    for blueprint in (auth.bp, main.bp, projects.bp, tasks.bp, teams.bp):
         app.register_blueprint(blueprint)
 
     app.jinja_env.globals["APP_NAME"] = "Plan-It"

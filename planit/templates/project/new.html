@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, textarea, select %}
+{% block title %}New Project - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1>New Project</h1></div>
+  <form method="post" class="card narrow stack">
+    {{ csrf() }}
+    <fieldset class="choice-cards">
+      <legend>What kind of project?</legend>
+      <label class="choice-card">
+        <input type="radio" name="kind" value="personal" data-kind{% if kind != 'team' %} checked{% endif %}>
+        <span><strong>Personal</strong><span>Just for you. Nobody else can see it.</span></span>
+      </label>
+      <label class="choice-card">
+        <input type="radio" name="kind" value="team" data-kind{% if kind == 'team' %} checked{% endif %}>
+        <span><strong>Team</strong><span>Share it with people or whole Teams, each with a role.</span></span>
+      </label>
+    </fieldset>
+    {{ field('name', 'Name', values.name, errors.name, attrs='required maxlength="80" autofocus') }}
+    <div class="field-row">
+      {{ field('key', 'Key', values.key, errors.key, hint='Like WEB (optional)', attrs='maxlength="5"') }}
+      <label class="field">
+        <span class="field-label">Colour</span>
+        <select name="color">
+          {% for color in colors %}<option value="{{ color }}"{% if color == values.color %} selected{% endif %}>{{ color|title }}</option>{% endfor %}
+        </select>
+      </label>
+      {{ field('due_date', 'Deadline', values.due_date|input_date, errors.due_date, type='date', hint='Optional') }}
+    </div>
+    {{ textarea('description', 'Description', values.description, errors.description, hint='Optional', rows=3) }}
+
+    <div class="stack" data-team-only>
+      <p class="field-label">Who else works on it? <span class="hint">Team projects only. Everyone starts as Member; change roles on the Members tab.</span></p>
+      {% if teams %}
+        <div class="check-list">
+          {% for team in teams %}
+            <label><input type="checkbox" name="team_ids" value="{{ team.id }}"{% if team.id|string in (values.team_ids or []) %} checked{% endif %}>
+              {{ team.name }} <span class="muted small">({{ team.members|length }} {{ 'person' if team.members|length == 1 else 'people' }})</span></label>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted small">You aren't in any Teams yet. <a href="{{ url_for('teams.index') }}">Make a Team</a> to add a group at once.</p>
+      {% endif %}
+      {{ field('usernames', 'People', values.usernames, errors.usernames, hint='Usernames, with spaces or commas between them') }}
+    </div>
+
+    <div class="form-actions">
+      <a class="button button-quiet" href="{{ url_for('projects.index') }}">Cancel</a>
+      <button class="button" type="submit">Create project</button>
+    </div>
+  </form>
+{% endblock %}
