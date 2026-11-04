@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, textarea %}
+{% block title %}Edit Comment - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <p class="kicker"><a href="{{ url_for('tasks.show', project_id=project.id, number=task.number) }}">{{ task.key }} {{ task.title }}</a></p>
+      <h1>Edit Comment</h1>
+    </div>
+  </div>
+  <form method="post" class="card narrow stack">
+    {{ csrf() }}
+    {{ textarea('body', 'Comment', body, error, rows=5, attrs='required maxlength="4000" autofocus') }}
+    <div class="form-actions">
+      <a class="button button-quiet" href="{{ url_for('tasks.show', project_id=project.id, number=task.number) }}#comment-{{ comment.id }}">Cancel</a>
+      <button class="button" type="submit">Save comment</button>
+    </div>
+  </form>
+{% endblock %}

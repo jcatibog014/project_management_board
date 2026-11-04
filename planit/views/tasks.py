@@ -7,7 +7,7 @@ workflow.move(), so the rules are the same.
 """
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
-from .. import activity, db, permissions as can, projects, tasks as task_list, workflow
+from .. import activity, comments, db, permissions as can, projects, tasks as task_list, workflow
 from ..auth import login_required, safe_next
 from ..dates import utcnow
 from ..models import STATUSES, User, WipLimit
@@ -104,7 +104,7 @@ def show(project_id, number):
     s = db.session()
     return render_template("project/task.html", project=project, access=access, task=task,
                            moves=workflow.allowed_moves(access, task), history=activity.for_task(s, task),
-                           people=projects.assignable(s, project))
+                           people=projects.assignable(s, project), handles=comments.handles(s, project))
 
 
 @bp.route("/projects/<int:project_id>/tasks/<int:number>/edit", methods=["GET", "POST"])
@@ -273,3 +273,56 @@ def set_limits(project_id):
     s.commit()
     flash("The column limits were saved.")
     return redirect(url_for("projects.settings", project_id=project.id) + "#limits")
+
+
+# ---------- Comments ----------
+
+def load_comment(project_id, number, comment_id):
+    project, access, task = load_task(project_id, number)
+    comment = next((comment for comment in task.comments if comment.id == comment_id), None)
+    if comment is None:
+        abort(404)
+    return project, access, task, comment
+
+
+@bp.post("/projects/<int:project_id>/tasks/<int:number>/comments")
+@login_required
+def add_comment(project_id, number):
+    project, access, task = load_task(project_id, number)
+    require(can.can_comment(access))
+    body, problem = comments.clean_body(request.form.get("body"))
+    if problem:
+        flash(problem)
+        return redirect(url_for("tasks.show", project_id=project.id, number=task.number) + "#comments")
+    s = db.session()
+    comment = comments.add(s, task, g.user, body)
+    s.commit()
+    return redirect(url_for("tasks.show", project_id=project.id, number=task.number) + f"#comment-{comment.id}")
+
+
+@bp.route("/projects/<int:project_id>/tasks/<int:number>/comments/<int:comment_id>", methods=["GET", "POST"])
+@login_required
+def change_comment(project_id, number, comment_id):
+    """GET: the edit form. POST: save the new words, or delete ("delete" button)."""
+    project, access, task, comment = load_comment(project_id, number, comment_id)
+    s = db.session()
+    back = url_for("tasks.show", project_id=project.id, number=task.number) + "#comments"
+    if request.method == "POST" and request.form.get("action") == "delete":
+        require(can.can_delete_comment(access, comment))
+        task.comments.remove(comment)
+        s.commit()
+        flash("The comment was deleted.")
+        return redirect(back)
+    require(can.can_edit_comment(access, comment), "Only the person who wrote a comment can change it.")
+    error = None
+    body = comment.body
+    if request.method == "POST":
+        body, error = comments.clean_body(request.form.get("body"))
+        if not error:
+            if body != comment.body:
+                comment.body, comment.edited_at = body, utcnow()
+                s.commit()
+            return redirect(url_for("tasks.show", project_id=project.id, number=task.number)
+                            + f"#comment-{comment.id}")
+    return render_template("project/comment_edit.html", project=project, task=task, comment=comment, body=body,
+                           error=error), 400 if error else 200

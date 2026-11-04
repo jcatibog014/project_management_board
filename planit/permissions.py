@@ -152,6 +152,21 @@ def can_set_limits(access):
     return access.writable and access.at_least(MANAGER)
 
 
+def can_comment(access):
+    """Everyone in the project, Viewers too: talking is how a Viewer takes part."""
+    return access.writable
+
+
+def can_edit_comment(access, comment):
+    """Only the person who wrote it changes the words."""
+    return access.writable and access.user is not None and comment.author_id == access.user.id
+
+
+def can_delete_comment(access, comment):
+    """The writer, or a Manager tidying up."""
+    return can_edit_comment(access, comment) or (access.writable and access.at_least(MANAGER))
+
+
 def can_manage_labels(access):
     """Make, rename and delete the project's labels. (Putting one on a task is editing the task.)"""
     return access.writable and access.at_least(MANAGER)

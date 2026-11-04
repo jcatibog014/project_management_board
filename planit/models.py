@@ -11,7 +11,10 @@
       ├──< activity                                 (the project's history)
       ├──< labels >── task_labels ──< tasks         (many-to-many: "Bug", "Design")
       └──< tasks ── assignee_id, reporter_id ──> users
-             └──< checklist_items                   (small steps inside a task)
+             ├──< checklist_items                   (small steps inside a task)
+             └──< comments ── author_id ──> users
+
+    notifications ── user_id ──> users              (someone's Inbox: mentions, reviews, ...)
 
 A user is one login. Who may do what in a project is never stored on the
 user: it comes from these links, and permissions.effective_role() picks the
@@ -230,6 +233,8 @@ class Task(Base):
     checklist: Mapped[list["ChecklistItem"]] = relationship(
         back_populates="task", cascade="all, delete-orphan", passive_deletes=True,
         order_by="ChecklistItem.position, ChecklistItem.id")
+    comments: Mapped[list["Comment"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan", passive_deletes=True, order_by="Comment.created_at")
 
     @property
     def key(self):
@@ -289,3 +294,45 @@ class Activity(Base):
     task: Mapped[Task | None] = relationship()
     actor: Mapped[User | None] = relationship(foreign_keys=[actor_id])
     other_user: Mapped[User | None] = relationship(foreign_keys=[other_user_id])
+
+
+# ---------- Talking ----------
+
+class Comment(Base):
+    """Plain text, never HTML: the templates escape it (and mark @mentions)."""
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    task: Mapped[Task] = relationship(back_populates="comments")
+    author: Mapped[User | None] = relationship()
+
+
+# What a notification is about (notify.py writes them, inbox.html says them).
+MENTIONED, ASSIGNED_TO_YOU, REVIEW_ASKED, APPROVED, SENT_BACK, REOPENED, COMMENTED, ADDED = (
+    "mentioned", "assigned", "review", "approved", "sent_back", "reopened", "commented", "added")
+
+
+class Notification(Base):
+    """One line in someone's Inbox."""
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
+    comment_id: Mapped[int | None] = mapped_column(ForeignKey("comments.id", ondelete="SET NULL"))
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    project: Mapped[Project] = relationship()
+    task: Mapped[Task | None] = relationship()
+    comment: Mapped[Comment | None] = relationship()
+    actor: Mapped[User | None] = relationship(foreign_keys=[actor_id])

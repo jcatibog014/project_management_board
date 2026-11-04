@@ -83,7 +83,7 @@ def new():
                 for team in chosen_teams:
                     projects.add_team(s, project, team, MEMBER)
                 for user in people:
-                    projects.add_person(s, project, user, MEMBER)
+                    projects.add_person(s, project, user, MEMBER, actor=g.user)
             s.commit()
             flash(f"{project.name} is ready. Add your first task.")
             return redirect(url_for("tasks.board", project_id=project.id))
@@ -133,7 +133,7 @@ def add_person(project_id):
     current = s.get(ProjectMember, (project.id, user.id))
     if current is not None:
         require(can.can_change_role(access, current.role), "Only the owner can change a Manager.")
-    message = projects.add_person(s, project, user, role)
+    message = projects.add_person(s, project, user, role, actor=g.user)
     s.commit()
     return back_to_members(project, message)
 

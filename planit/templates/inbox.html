@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, avatar %}
+{% block title %}Inbox - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  {% set unread_here = notes|selectattr('read_at', 'none')|list|length %}
+  <div class="page-head">
+    <div>
+      <h1>Inbox</h1>
+      <p class="lead">{% if unread_here %}{{ unread_here }} new {{ 'thing needs' if unread_here == 1 else 'things need' }} you.{% else %}You're all caught up.{% endif %}</p>
+    </div>
+    {% if unread_here %}
+      <form method="post" action="{{ url_for('main.read_all') }}" class="head-actions">
+        {{ csrf() }}<button class="button button-quiet" type="submit">Mark all read</button>
+      </form>
+    {% endif %}
+  </div>
+  {% if notes %}
+    <ul class="inbox">
+      {% for note in notes %}
+        {% set who = note.actor.display_name if note.actor else 'Someone' %}
+        {% set what = (note.task.key ~ ' ' ~ note.task.title) if note.task else note.project.name %}
+        <li class="note{% if not note.read_at %} is-unread{% endif %}">
+          {{ avatar(note.actor) }}
+          <div class="note-text">
+            <p>{{ who }}
+              {% if note.kind == 'mentioned' %}mentioned you on
+              {% elif note.kind == 'assigned' %}gave you
+              {% elif note.kind == 'review' %}asks for a review of
+              {% elif note.kind == 'approved' %}approved
+              {% elif note.kind == 'sent_back' %}sent back
+              {% elif note.kind == 'reopened' %}reopened
+              {% elif note.kind == 'commented' %}commented on
+              {% elif note.kind == 'added' %}added you to
+              {% endif %}
+              <a href="{{ url_for('main.open_note', note_id=note.id) }}">{{ what }}</a>{% if note.task %} <span class="muted">in {{ note.project.name }}</span>{% endif %}</p>
+            {% if note.comment %}<p class="note-quote">"{{ note.comment.body|truncate(140) }}"</p>{% endif %}
+          </div>
+          <time datetime="{{ note.created_at.isoformat() }}Z" title="{{ note.created_at|nice_datetime }}">{{ note.created_at|ago }}</time>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty-state">
+      <h2>Nothing Yet</h2>
+      <p>When someone mentions you, gives you a task or asks for your review, it shows up here.</p>
+    </div>
+  {% endif %}
+{% endblock %}

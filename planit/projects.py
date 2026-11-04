@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import or_, select
 
 from . import permissions
-from .models import COLORS, MEMBER, OWNER, PERSONAL, RANK, SHARED_ROLES, TEAM, Project, ProjectMember, \
+from .models import ADDED, COLORS, MEMBER, OWNER, PERSONAL, RANK, SHARED_ROLES, TEAM, Project, ProjectMember, \
     ProjectTeam, Team, User, team_members
 
 NAME_MAX_LENGTH = 80
@@ -137,13 +137,18 @@ def find_user(s, username):
     return s.scalar(select(User).where(User.username == username.strip().lower(), User.is_demo.is_(False)))
 
 
-def add_person(s, project, user, role):
+def add_person(s, project, user, role, actor=None):
     """Give this person their own role (or raise the one they have). Returns a message."""
+    from . import notify
+
     if user.id == project.owner_id:
         return f"{user.display_name} owns this project."
     link = s.get(ProjectMember, (project.id, user.id))
     if link is None:
         s.add(ProjectMember(project_id=project.id, user_id=user.id, role=role))
+        s.flush()
+        if actor is not None:
+            notify.send(s, [user], ADDED, actor, project)
         return f"{user.display_name} was added as {role.title()}."
     link.role = role
     return f"{user.display_name} is now {role.title()}."

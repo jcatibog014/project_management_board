@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import selectinload
 
-from . import activity, projects
+from . import activity, notify, projects
 from .dates import utcnow
-from .models import BACKLOG, COLORS, DONE, HIGH, LOW, MEDIUM, PRIORITIES, STATUSES, TODO, URGENT, ChecklistItem, \
-    Label, Project, Task
+from .models import ASSIGNED_TO_YOU, BACKLOG, COLORS, DONE, HIGH, LOW, MEDIUM, PRIORITIES, STATUSES, TODO, URGENT, \
+    ChecklistItem, Comment, Label, Project, Task
 
 TITLE_MAX_LENGTH = 200
 DESCRIPTION_MAX_LENGTH = 10_000
@@ -26,7 +26,7 @@ STARTER_LABELS = (("Bug", "red"), ("Feature", "blue"), ("Design", "purple"))
 def card_options():
     """Load what a card shows in one go, not one query per card."""
     return (selectinload(Task.assignee), selectinload(Task.project), selectinload(Task.labels),
-            selectinload(Task.checklist))
+            selectinload(Task.checklist), selectinload(Task.comments).selectinload(Comment.author))
 
 
 PRIORITY_RANK = case((Task.priority == URGENT, 0), (Task.priority == HIGH, 1), (Task.priority == MEDIUM, 2),
@@ -100,6 +100,7 @@ def assign(s, task, user, actor):
     task.updated_at = utcnow()
     if user:
         activity.log(s, task.project, actor, activity.ASSIGNED, task, other_user_id=user.id)
+        notify.send(s, [user], ASSIGNED_TO_YOU, actor, task.project, task)
     else:
         activity.log(s, task.project, actor, activity.UNASSIGNED, task)
 

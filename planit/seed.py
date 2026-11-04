@@ -21,7 +21,7 @@ from werkzeug.security import generate_password_hash
 from . import activity
 from .dates import to_local
 from .models import BACKLOG, DONE, IN_PROGRESS, MANAGER, MEMBER, PERSONAL, REVIEW, TEAM, TODO, VIEWER, \
-    ChecklistItem, Label, Project, ProjectMember, ProjectTeam, Task, Team, User, WipLimit
+    ChecklistItem, Comment, Label, Notification, Project, ProjectMember, ProjectTeam, Task, Team, User, WipLimit
 
 TEAMMATES = [
     ("ana", "Ana Cruz"), ("ben", "Ben Santos"), ("cara", "Cara Lim"), ("dev", "Dev Patel"), ("eli", "Eli Reyes"),
@@ -40,7 +40,10 @@ class World:
     # ---------- People and Teams ----------
 
     def teammates(self):
-        tag = self.user.username.removeprefix("demo-")
+        # The visitor is demo-<tag>-sam; the teammates share the tag. (A practice
+        # login without a tag, docs/make_practice_data.py, uses its own name.)
+        parts = self.user.username.split("-")
+        tag = parts[1] if len(parts) > 2 else self.user.username
         for short, name in TEAMMATES:
             # Nobody knows this password, and demo users can't log in anyway.
             mate = User(username=f"demo-{tag}-{short}", display_name=name, is_demo=True,
@@ -110,6 +113,20 @@ class World:
             task.completed_at = end
         return task
 
+    def comment(self, task, author, body, hours):
+        moment = self.ago(hours=hours)
+        comment = Comment(task_id=task.id, author_id=self.people[author].id, body=body, created_at=moment)
+        task.comments.append(comment)
+        self.s.flush()
+        self.log(task.project, author, activity.COMMENTED, task, moment)
+        return comment
+
+    def note(self, kind, actor, project, task, comment, hours, read=False):
+        moment = self.ago(hours=hours)
+        self.s.add(Notification(user_id=self.user.id, kind=kind, project_id=project.id,
+                                task_id=task.id if task else None, comment_id=comment.id if comment else None,
+                                actor_id=self.people[actor].id, created_at=moment, read_at=moment if read else None))
+
     def log(self, project, actor, verb, task, moment, **fields):
         entry = activity.log(self.s, project, self.people[actor], verb, task, **fields)
         entry.created_at = moment
@@ -138,17 +155,17 @@ def build(s, user, now):
     s.add(WipLimit(project_id=web.id, status=IN_PROGRESS, max_tasks=3))
     w.task(web, "Write the new homepage copy", BACKLOG, by="ana", labels=["Feature"], age=12)
     w.task(web, "Collect customer quotes", BACKLOG, due_in=12, by="cara", age=9)
-    w.task(web, "Design the login page", TODO, due_in=-1, priority="high", labels=["Design"], by="ana", age=8,
+    login_page = w.task(web, "Design the login page", TODO, due_in=-1, priority="high", labels=["Design"], by="ana", age=8,
            description="Match the new brand colours. Keep **one** big button and a link to sign up.")
     w.task(web, "Pick the colour palette", TODO, "ana", due_in=2, labels=["Design"], age=6,
            steps=[("Collect three options", True), ("Check contrast", False), ("Ask the team", False)])
-    w.task(web, "Build the navigation bar", IN_PROGRESS, "me", due_in=1, priority="high", labels=["Feature"],
+    nav = w.task(web, "Build the navigation bar", IN_PROGRESS, "me", due_in=1, priority="high", labels=["Feature"],
            age=10, steps=[("Desktop menu", True), ("Phone menu", True), ("Keyboard support", False)],
            description="The menu at the top of every page.\n\n- Logo on the left\n- Five links\n- A search button")
     w.task(web, "Set up the contact form", IN_PROGRESS, "ana", due_in=5, labels=["Feature"], age=7)
     w.task(web, "Fix the broken footer links", IN_PROGRESS, "ben", due_in=0, priority="urgent", labels=["Bug"],
            age=3, by="cara")
-    w.task(web, "Make pages load faster", REVIEW, "cara", due_in=3, labels=["Feature"], age=14,
+    speed = w.task(web, "Make pages load faster", REVIEW, "cara", due_in=3, labels=["Feature"], age=14,
            steps=[("Smaller pictures", True), ("Cache the fonts", True)])
     w.task(web, "Choose the new logo", DONE, "ana", labels=["Design"], age=30, finished=18)
     w.task(web, "Move the domain to the new host", DONE, "me", age=40, finished=33)
@@ -162,14 +179,14 @@ def build(s, user, now):
                     people={"eli": MANAGER}, teams={dev_team: MEMBER})
     w.task(app, "Write the store description", BACKLOG, by="eli", age=5)
     w.task(app, "Add dark mode", TODO, by="cara", labels=["Feature"], age=4)
-    w.task(app, "Sign-in with a code", TODO, "me", due_in=6, labels=["Feature"], by="eli", age=6)
-    w.task(app, "Crash when opening settings", IN_PROGRESS, "me", due_in=-2, priority="urgent", labels=["Bug"],
+    sign_in = w.task(app, "Sign-in with a code", TODO, "me", due_in=6, labels=["Feature"], by="eli", age=6)
+    crash = w.task(app, "Crash when opening settings", IN_PROGRESS, "me", due_in=-2, priority="urgent", labels=["Bug"],
            by="eli", age=4, steps=[("Find the cause", True), ("Write a fix", False), ("Test on Android", False)])
     w.task(app, "Push notifications", IN_PROGRESS, "cara", due_in=8, labels=["Feature"], by="dev", age=9)
-    w.task(app, "App icon in all sizes", REVIEW, "me", due_in=1, labels=["Design"], by="dev", age=11)
+    icon = w.task(app, "App icon in all sizes", REVIEW, "me", due_in=1, labels=["Design"], by="dev", age=11)
     w.task(app, "Set up the test phones", DONE, "eli", age=35, finished=27)
     w.task(app, "Offline mode", DONE, "dev", labels=["Feature"], age=28, finished=12)
-    w.task(app, "Login screen", DONE, "me", labels=["Feature"], by="eli", age=20, finished=8)
+    login_screen = w.task(app, "Login screen", DONE, "me", labels=["Feature"], by="eli", age=20, finished=8)
     w.task(app, "Speed up the start", DONE, "cara", age=16, finished=2)
 
     # ----- Marketing Plan: the visitor can only look and comment -----
@@ -179,7 +196,7 @@ def build(s, user, now):
                           labels=(("Social", "pink"), ("Email", "teal"), ("Event", "yellow")))
     w.task(marketing, "Launch video script", TODO, "ana", due_in=9, labels=["Social"], by="cara", age=6)
     w.task(marketing, "Newsletter for December", IN_PROGRESS, "ben", due_in=4, labels=["Email"], by="cara", age=8)
-    w.task(marketing, "Book the launch party venue", REVIEW, "cara", due_in=-3, priority="high",
+    venue = w.task(marketing, "Book the launch party venue", REVIEW, "cara", due_in=-3, priority="high",
            labels=["Event"], by="cara", age=13)
     w.task(marketing, "Logo stickers", DONE, "ana", labels=["Event"], by="cara", age=30, finished=15)
 
@@ -194,4 +211,23 @@ def build(s, user, now):
     w.task(flask_project, "Try SQLAlchemy relationships", BACKLOG, labels=["Reading"], age=2)
     w.task(flask_project, "Finish the tutorial", DONE, "me", labels=["Practice"], age=21, finished=14)
     s.flush()
+
+    # ----- Talking: comments with @mentions, and the Inbox they fill -----
+    w.comment(nav, "ana", "Can we keep the search button on phones too? @sam", hours=30)
+    w.comment(nav, "me", "Yes, it goes next to the menu button. @ana can you check the spacing?", hours=26)
+    w.comment(nav, "ana", "Looks good on my phone now.", hours=6)
+    hi = w.comment(speed, "cara", "Pictures are now half the size. Ready for review, @sam!", hours=20)
+    w.comment(login_page, "ana", "I made two versions. Which one do we like?", hours=50)
+    crash_note = w.comment(crash, "eli", "@sam this is the top bug for the release. Can you look today?", hours=4)
+    w.comment(crash, "me", "On it. It only happens when the app has no internet.", hours=3)
+    w.comment(icon, "dev", "The round Android icon looks a bit small.", hours=10)
+    w.comment(venue, "ben", "The hall on 5th Street is free on the 12th.", hours=28)
+    w.comment(venue, "cara", "Let's book it. @ana please send the deposit.", hours=22)
+    w.note("mentioned", "eli", app, crash, crash_note, hours=4)
+    w.note("review", "cara", web, speed, None, hours=19)
+    w.note("mentioned", "cara", web, speed, hi, hours=20)
+    w.note("assigned", "eli", app, sign_in, None, hours=30)
+    w.note("approved", "dev", app, login_screen, None, hours=8 * 24, read=True)
+    w.note("commented", "ana", web, nav, None, hours=6, read=True)
+    w.note("added", "cara", marketing, None, None, hours=20 * 24, read=True)
     return w

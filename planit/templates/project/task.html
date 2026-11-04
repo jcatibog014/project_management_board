@@ -70,6 +70,50 @@
           {% endif %}
         </section>
       {% endif %}
+      <section class="card" id="comments">
+        <div class="section-head">
+          <h2>Comments</h2>
+          {% if task.comments %}<span class="muted small">{{ task.comments|length }}</span>{% endif %}
+        </div>
+        <ul class="comments">
+          {% for comment in task.comments %}
+            <li class="comment" id="comment-{{ comment.id }}">
+              {{ avatar(comment.author) }}
+              <div>
+                <p class="comment-head"><strong>{{ comment.author.display_name if comment.author else 'Someone who left' }}</strong>
+                  <time class="muted small" datetime="{{ comment.created_at.isoformat() }}Z" title="{{ comment.created_at|nice_datetime }}">{{ comment.created_at|ago }}</time>
+                  {% if comment.edited_at %}<span class="muted small">(edited)</span>{% endif %}</p>
+                <p class="comment-body">{{ with_mentions(comment.body, handles) }}</p>
+                {% if can.can_edit_comment(access, comment) or can.can_delete_comment(access, comment) %}
+                  <div class="comment-tools">
+                    {% if can.can_edit_comment(access, comment) %}
+                      <a href="{{ url_for('tasks.change_comment', project_id=project.id, number=task.number, comment_id=comment.id) }}">Edit</a>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('tasks.change_comment', project_id=project.id, number=task.number, comment_id=comment.id) }}" class="inline-form" data-confirm="Delete this comment?">
+                      {{ csrf() }}<button class="link-button" type="submit" name="action" value="delete">Delete</button>
+                    </form>
+                  </div>
+                {% endif %}
+              </div>
+            </li>
+          {% else %}
+            <li class="empty-line">No comments yet. Ask a question or share an update.</li>
+          {% endfor %}
+        </ul>
+        {% if can.can_comment(access) %}
+          <form method="post" action="{{ url_for('tasks.add_comment', project_id=project.id, number=task.number) }}" class="stack section-gap">
+            {{ csrf() }}
+            <label class="field">
+              {% set others = [] %}
+              {% for name in handles|sort if handles[name].id != g.user.id %}{% set _ = others.append('@' ~ name) %}{% endfor %}
+              <span class="field-label">Add a comment{% if others %} <span class="hint">Mention someone with @: {{ others|join(', ') }}</span>{% endif %}</span>
+              <textarea name="body" rows="3" maxlength="4000" required></textarea>
+            </label>
+            <div class="form-actions"><button class="button" type="submit">Comment</button></div>
+          </form>
+        {% endif %}
+      </section>
+
       <section class="card">
         <h2 class="section-head">History</h2>
         <ul class="feed">

@@ -57,6 +57,9 @@
     {% if task.checklist %}
       <span class="meta-item{% if task.checked == task.checklist|length %} steps-done{% endif %}" title="{{ task.checked }} of {{ task.checklist|length }} steps done">{{ icon('checklist', 13) }} {{ task.checked }}/{{ task.checklist|length }}</span>
     {% endif %}
+    {% if task.comments %}
+      <span class="meta-item" title="{{ task.comments|length }} comments">{{ icon('comment', 13) }} {{ task.comments|length }}</span>
+    {% endif %}
     {{ caller() if caller is defined else '' }}
     {{ avatar(task.assignee, 'small') }}
   </div>

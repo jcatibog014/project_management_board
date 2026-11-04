@@ -17,9 +17,10 @@ and writes the history.
 """
 from sqlalchemy import func, select
 
-from . import activity
+from . import activity, notify
 from .dates import utcnow
-from .models import BACKLOG, DONE, IN_PROGRESS, MANAGER, MEMBER, REVIEW, STATUSES, TODO, Task, WipLimit
+from .models import APPROVED, BACKLOG, DONE, IN_PROGRESS, MANAGER, MEMBER, REOPENED, REVIEW, REVIEW_ASKED, SENT_BACK, \
+    STATUSES, TODO, Task, WipLimit
 
 NAMES = {BACKLOG: "Backlog", TODO: "To Do", IN_PROGRESS: "In Progress", REVIEW: "In Review", DONE: "Done"}
 
@@ -109,6 +110,11 @@ def move(s, access, task, to):
         task.completed_at = now
     elif before == DONE:
         task.completed_at = None
-    activity.log(s, task.project, access.user, activity.verb_for_move(before, to), task, from_status=before,
-                 to_status=to)
+    verb = activity.verb_for_move(before, to)
+    activity.log(s, task.project, access.user, verb, task, from_status=before, to_status=to)
+    if to == REVIEW:
+        notify.send(s, notify.managers(s, task.project), REVIEW_ASKED, access.user, task.project, task)
+    elif verb in (activity.APPROVED, activity.SENT_BACK, activity.REOPENED):
+        kind = {activity.APPROVED: APPROVED, activity.SENT_BACK: SENT_BACK, activity.REOPENED: REOPENED}[verb]
+        notify.send(s, [task.assignee], kind, access.user, task.project, task)
     return None
