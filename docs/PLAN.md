@@ -79,7 +79,7 @@ The columns are Backlog → To Do → In Progress → In Review → Done.
   - White cards with 6px corners, and one bright blue accent (`#2F6BFF`).
   - A colour stripe for each status: Backlog slate, To Do sky, In Progress amber, In Review violet, Done green.
 - **Dark mode:** a navy-black page with the grid in light blue lines.
-- **Fonts and icons:** Space Grotesk for headings and Inter for text, both self-hosted. The logo is a ringed planet with a tick on the ring, drawn by `docs/make_icons.py`, and the app is installable (manifest + icons).
+- **Fonts and icons:** Space Grotesk for headings and Inter for text, both self-hosted. The logo is a ringed planet, drawn by `docs/make_icons.py`, and the app is installable (manifest + icons).
 - **Neat text:** Title Case for the menu and headings, sentence case for buttons, no decorative emoji, controls at equal heights.
 - Theme and Log out sit in **Settings** and in the account menu, not in the header.
 

@@ -1,4 +1,4 @@
-"""Draw the app icon (planit/static/icons/): the ringed planet with a tick, white on a blue tile.
+"""Draw the app icon (planit/static/icons/): the ringed planet, white on a blue tile.
 
 It is the same drawing as the logo in templates/_icons.html, in the icon's own
 colours. Phones and browsers want PNG pictures in fixed sizes, plus favicon.ico.
@@ -21,7 +21,6 @@ ICONS = ROOT / "planit" / "static" / "icons"
 TILE = "#2f6bff"
 PLANET = "#ffffff"
 RING = "#bcd3ff"
-TICK = "#2f6bff"
 
 # (file, size, shape). "rounded" has see-through corners, for browser tabs and
 # installed apps. "square" fills every pixel: iPhones round the corners
@@ -53,7 +52,6 @@ def page_html(size, shape):
     <ellipse cx="16" cy="16" rx="15" ry="5.2" fill="none" stroke="{RING}" stroke-width="2.2" transform="rotate(-24 16 16)"/>
     <circle cx="16" cy="16" r="10" fill="{PLANET}"/>
     <path d="M2.4 21.6 A15 5.2 -24 0 0 29.6 10.4" fill="none" stroke="{RING}" stroke-width="2.2"/>
-    <path d="M11.5 16.3l3.1 3.1 6-6.2" fill="none" stroke="{TICK}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
 </div>"""
 
