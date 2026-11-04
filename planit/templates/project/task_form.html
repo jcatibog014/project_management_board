@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, textarea %}
+{% block title %}{{ 'Edit ' ~ task.key if task else 'New Task' }} - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <p class="kicker"><a href="{{ url_for('tasks.board', project_id=project.id) }}">{{ project.name }}</a>{% if task %} &middot; {{ task.key }}{% endif %}</p>
+      <h1>{{ 'Edit Task' if task else 'New Task' }}</h1>
+    </div>
+  </div>
+  <form method="post" class="card narrow stack">
+    {{ csrf() }}
+    {{ field('title', 'Title', values.title, errors.title, attrs='required maxlength="200" autofocus') }}
+    {{ textarea('description', 'Description', values.description, errors.description, hint='You can use Markdown: **bold**, - lists, [links](https://...)', rows=7) }}
+    <div class="field-row">
+      {% if not task %}
+        <label class="field">
+          <span class="field-label">Column</span>
+          <select name="status">
+            {% for status in ('backlog', 'todo') %}<option value="{{ status }}"{% if values.status == status %} selected{% endif %}>{{ workflow.name(status) }}</option>{% endfor %}
+          </select>
+        </label>
+      {% endif %}
+      {% if can.can_assign_anyone(access) or not task %}
+        <label class="field">
+          <span class="field-label">Assignee</span>
+          <select name="assignee_id">
+            <option value="">Nobody yet</option>
+            {% for user in people if can.can_assign_anyone(access) or user.id == g.user.id %}
+              <option value="{{ user.id }}"{% if user.id|string == values.assignee_id|string %} selected{% endif %}>{{ user.display_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endif %}
+      <label class="field">
+        <span class="field-label">Priority</span>
+        <select name="priority">
+          {% for value, text in priorities.items() %}<option value="{{ value }}"{% if value == (values.priority or 'medium') %} selected{% endif %}>{{ text }}</option>{% endfor %}
+        </select>
+      </label>
+      {{ field('due_date', 'Deadline', values.due_date|input_date, errors.due_date, type='date', hint='Optional') }}
+    </div>
+    {% if labels %}
+      <fieldset class="plain-fieldset field">
+        <legend class="field-label">Labels</legend>
+        <div class="label-picker">
+          {% for label in labels %}
+            <label class="label-option color-{{ label.color }}">
+              <input type="checkbox" name="label_ids" value="{{ label.id }}"{% if label.id|string in (values.label_ids or []) %} checked{% endif %}>
+              <span class="label-chip">{{ label.name }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    {% endif %}
+    <div class="form-actions">
+      <a class="button button-quiet" href="{{ url_for('tasks.show', project_id=project.id, number=task.number) if task else url_for('tasks.board', project_id=project.id) }}">Cancel</a>
+      <button class="button" type="submit">{{ 'Save task' if task else 'Add task' }}</button>
+    </div>
+  </form>
+{% endblock %}

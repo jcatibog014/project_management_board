@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Join a Project - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  {% if invite %}
+    <div class="card narrow stack">
+      <p class="kicker">Invite</p>
+      <h1>Join {{ invite.project.name }}</h1>
+      <p>{{ invite.created_by.display_name }} invited you as <strong>{{ invite.role|title }}</strong>.
+        {% if invite.role == 'viewer' %}You can see the board and comment.{% elif invite.role == 'member' %}You can add tasks and work on the ones given to you.{% else %}You can manage the tasks and the people.{% endif %}</p>
+      {% if current %}<p class="muted">You are already in it as {{ current|title }}.</p>{% endif %}
+      <form method="post" class="form-actions">
+        {{ csrf() }}
+        <a class="button button-quiet" href="{{ url_for('main.home') }}">Not now</a>
+        <button class="button" type="submit">Join project</button>
+      </form>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <h1>This Link Doesn't Work</h1>
+      <p>It was already used, it was cancelled, or it is more than 7 days old. Ask for a new one.</p>
+    </div>
+  {% endif %}
+{% endblock %}

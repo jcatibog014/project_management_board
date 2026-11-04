@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, avatar %}
+{% from "project/_head.html" import project_head with context %}
+{% block title %}Members - {{ project.name }} - {{ APP_NAME }}{% endblock %}
+{% macro role_select(current, label) %}
+  <label class="visually-hidden" for="{{ label }}">Role</label>
+  <select name="role" id="{{ label }}" data-auto-submit>
+    {% for value, text in role_choices %}<option value="{{ value }}"{% if value == current %} selected{% endif %}>{{ text }}</option>{% endfor %}
+  </select>
+  <button class="button button-quiet button-small" type="submit" data-auto-submit-button>Save</button>
+{% endmacro %}
+{% block content %}
+  {{ project_head(project, access, 'members') }}
+  {% set manage = can.can_manage_people(access) %}
+
+  <section>
+    <div class="section-head">
+      <h2>People</h2>
+      <span class="muted small">{{ people|length }} {{ 'person' if people|length == 1 else 'people' }} can open this project. The highest role wins.</span>
+    </div>
+    <ul class="people-list">
+      {% for person in people %}
+        <li class="person-row">
+          {{ avatar(person.user) }}
+          <span class="person-name">{{ person.user.display_name }}{% if person.user.id == g.user.id %} (you){% endif %}
+            <small>@{{ handle(person.user) }}
+              {%- if person.is_owner %} &middot; owns the project
+              {%- else %}
+                {%- if person.direct_role %} &middot; own role: {{ person.direct_role|title }}{% endif %}
+                {%- for team, role in person.teams %} &middot; {{ role|title }} through {{ team.name }}{% endfor %}
+              {%- endif %}</small></span>
+          <span class="badge badge-role role-{{ person.role }}">{{ person.role|title }}</span>
+          {% if person.direct_role and can.can_change_role(access, person.direct_role) and person.user.id != g.user.id %}
+            <form method="post" action="{{ url_for('projects.change_person', project_id=project.id, user_id=person.user.id) }}">
+              {{ csrf() }}
+              {{ role_select(person.direct_role, 'role-' ~ person.user.id) }}
+              <button class="button button-danger button-small" type="submit" name="action" value="remove">Remove</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% if manage %}
+      <form method="post" action="{{ url_for('projects.add_person', project_id=project.id) }}" class="filters section-gap">
+        {{ csrf() }}
+        <label>Username<input type="text" name="username" required placeholder="e.g. ana" autocomplete="off"></label>
+        <label>Role<select name="role">{% for value, text in role_choices %}<option value="{{ value }}"{% if value == 'member' %} selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+        <div class="form-actions"><button class="button" type="submit">Add person</button></div>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="section">
+    <div class="section-head"><h2>Teams</h2><span class="muted small">Everyone in a Team gets its role here.</span></div>
+    {% if team_links %}
+      <ul class="people-list">
+        {% for link in team_links %}
+          <li class="person-row">
+            <span class="avatar avatar-empty">{{ link.team.name[:1]|upper }}</span>
+            <span class="person-name">{{ link.team.name }}<small>{{ link.team.members|length }} {{ 'person' if link.team.members|length == 1 else 'people' }}: {{ link.team.members|map(attribute='display_name')|join(', ') }}</small></span>
+            <span class="badge badge-role role-{{ link.role }}">{{ link.role|title }}</span>
+            {% if can.can_change_role(access, link.role) %}
+              <form method="post" action="{{ url_for('projects.change_team', project_id=project.id, team_id=link.team_id) }}">
+                {{ csrf() }}
+                {{ role_select(link.role, 'team-role-' ~ link.team_id) }}
+                <button class="button button-danger button-small" type="submit" name="action" value="remove">Remove</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">No Teams share this project yet.</p>
+    {% endif %}
+    {% if manage %}
+      {% if addable_teams %}
+        <form method="post" action="{{ url_for('projects.add_team', project_id=project.id) }}" class="filters section-gap">
+          {{ csrf() }}
+          <label>Team<select name="team_id">{% for team in addable_teams %}<option value="{{ team.id }}">{{ team.name }} ({{ team.members|length }})</option>{% endfor %}</select></label>
+          <label>Role<select name="role">{% for value, text in role_choices %}<option value="{{ value }}"{% if value == 'member' %} selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+          <div class="form-actions"><button class="button" type="submit">Add Team</button></div>
+        </form>
+      {% else %}
+        <p class="muted small section-gap">To add a group at once, <a href="{{ url_for('teams.index') }}">make a Team</a> first. You can add the Teams you are in.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  {% if manage %}
+    <section class="section" id="invites">
+      <div class="section-head"><h2>Invite Links</h2><span class="muted small">Each link works once, for 7 days.</span></div>
+      {% if new_link %}
+        <div class="card stack">
+          <p><strong>Your new link</strong> adds one person as {{ new_link.role|title }}. Copy it now: it is shown only once.</p>
+          <div class="invite-link">
+            <input type="text" id="new-invite" value="{{ new_link.url }}" readonly aria-label="Invite link">
+            <button class="button" type="button" data-copy="new-invite" hidden>Copy</button>
+          </div>
+        </div>
+      {% endif %}
+      {% if invites %}
+        <ul class="people-list section-gap">
+          {% for invite in invites %}
+            <li class="person-row">
+              <span class="person-name">Link for a {{ invite.role|title }}<small>Made by {{ invite.created_by.display_name }} &middot; works until {{ invite.expires_at|nice_date }}</small></span>
+              <form method="post" action="{{ url_for('projects.cancel_invite', project_id=project.id, invite_id=invite.id) }}">
+                {{ csrf() }}<button class="button button-quiet button-small" type="submit">Cancel link</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      <form method="post" action="{{ url_for('projects.new_invite', project_id=project.id) }}" class="filters section-gap">
+        {{ csrf() }}
+        <label>Role for the person who opens it<select name="role">{% for value, text in role_choices %}<option value="{{ value }}"{% if value == 'member' %} selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+        <div class="form-actions"><button class="button" type="submit">Make link</button></div>
+      </form>
+    </section>
+  {% endif %}
+
+  {% if can.can_leave_project(access) and people|selectattr('user.id', 'equalto', g.user.id)|map(attribute='direct_role')|first %}
+    <section class="section">
+      <form method="post" action="{{ url_for('projects.leave', project_id=project.id) }}" class="form-actions" data-confirm="Leave {{ project.name }}?">
+        {{ csrf() }}
+        <button class="button button-danger" type="submit">Leave project</button>
+      </form>
+    </section>
+  {% endif %}
+{% endblock %}

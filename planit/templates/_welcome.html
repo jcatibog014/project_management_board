@@ -1,0 +1,13 @@
+{% from "_icons.html" import logo %}
+{# The panel beside the login and sign-up cards. #}
+<section class="welcome-panel">
+  <a class="logo" href="{{ url_for('auth.login') }}">{{ logo(36) }} Plan-It</a>
+  <p class="welcome-line">Your projects, in orbit.</p>
+  <p class="welcome-note">One board for you and your team: tasks, deadlines and who is doing what.</p>
+  <ul class="welcome-points">
+    <li class="status-todo">Plan the work in clear steps</li>
+    <li class="status-in_progress">Share a project with people or a whole team</li>
+    <li class="status-review">Give each person the right role</li>
+    <li class="status-done">Watch tasks move to Done</li>
+  </ul>
+</section>

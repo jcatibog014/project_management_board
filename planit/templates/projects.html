@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_project_card.html" import project_card %}
+{% block title %}Projects - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1>Projects</h1>
+      <p class="lead">Everything you own, were added to, or share through a Team.</p>
+    </div>
+    <div class="head-actions">
+      <a class="button" href="{{ url_for('projects.new') }}">{{ icon('plus') }} New project</a>
+    </div>
+  </div>
+  {% if active %}
+    <div class="project-grid">
+      {% for project in active %}{{ project_card(project, stats.get(project.id) if stats else None) }}{% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <h2>No Projects Yet</h2>
+      <p>Make a Personal project for your own work, or a Team project to share.</p>
+      <a class="button" href="{{ url_for('projects.new') }}">{{ icon('plus') }} New project</a>
+    </div>
+  {% endif %}
+  {% if archived %}
+    <section class="section">
+      <div class="section-head"><h2>Archived</h2><span class="muted small">Read-only. The owner can bring one back.</span></div>
+      <div class="project-grid">
+        {% for project in archived %}{{ project_card(project, stats.get(project.id) if stats else None) }}{% endfor %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

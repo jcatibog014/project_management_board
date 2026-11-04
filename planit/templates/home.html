@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_task_card.html" import task_row with context %}
+{% from "_project_card.html" import project_card %}
+{% from "_activity.html" import activity_line with context %}
+{% block title %}Home - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="page-head greeting">
+    <div>
+      <h1>{{ greeting }}, {{ g.user.display_name.split(' ')[0] }}</h1>
+      <p class="lead">{% if open_count %}You have {{ open_count }} open {{ 'task' if open_count == 1 else 'tasks' }}.{% if counts.get('Overdue') %} Start with the late ones.{% endif %}{% elif active %}Nothing is waiting for you. Nice work.{% else %}Start with your first project.{% endif %}</p>
+    </div>
+    <div class="head-actions">
+      <a class="button" href="{{ url_for('projects.new') }}">{{ icon('plus') }} New project</a>
+    </div>
+  </div>
+
+  <div class="stat-tiles">
+    <a class="stat stat-late" href="{{ url_for('main.my_tasks') }}#group-overdue"><span class="stat-value">{{ counts.get('Overdue', 0) }}</span><span class="stat-label">Overdue</span></a>
+    <a class="stat stat-soon" href="{{ url_for('main.my_tasks') }}#group-today"><span class="stat-value">{{ counts.get('Today', 0) }}</span><span class="stat-label">Due today</span></a>
+    <a class="stat" href="{{ url_for('main.my_tasks') }}#group-this-week"><span class="stat-value">{{ counts.get('This Week', 0) }}</span><span class="stat-label">Due this week</span></a>
+    <a class="stat stat-good" href="{{ url_for('main.my_tasks') }}#review"><span class="stat-value">{{ review|length }}</span><span class="stat-label">Waiting for your review</span></a>
+  </div>
+
+  <div class="home-grid">
+    <section>
+      <div class="section-head"><h2>Up Next</h2><a href="{{ url_for('main.my_tasks') }}">All my tasks</a></div>
+      {% if mine %}
+        <div class="task-rows">{% for task in mine %}{{ task_row(task) }}{% endfor %}</div>
+      {% else %}
+        <div class="empty-state"><h2>All Clear</h2><p>No tasks are given to you right now. Take one from a board.</p></div>
+      {% endif %}
+    </section>
+    <section>
+      <div class="section-head"><h2>Recent Activity</h2></div>
+      {% if feed %}
+        <div class="card"><ul class="feed">{% for entry in feed %}{{ activity_line(entry, show_project=True) }}{% endfor %}</ul></div>
+      {% else %}
+        <p class="empty-line">What happens in your projects shows up here.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="section">
+    <div class="section-head"><h2>Your Projects</h2><a href="{{ url_for('projects.index') }}">All projects</a></div>
+    {% if active %}
+      <div class="project-grid">{% for project in active[:6] %}{{ project_card(project, stats.get(project.id)) }}{% endfor %}</div>
+    {% else %}
+      <div class="empty-state">
+        <h2>No Projects Yet</h2>
+        <p>Make a Personal project for your own work, or a Team project to share.</p>
+        <a class="button" href="{{ url_for('projects.new') }}">{{ icon('plus') }} New project</a>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

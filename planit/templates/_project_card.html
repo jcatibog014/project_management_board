@@ -1,0 +1,24 @@
+{# One project as a card. Needs project; stats (from tasks.project_stats) is optional. #}
+{% from "_macros.html" import avatar %}
+{% macro project_card(project, stats=None) %}
+<article class="project-card color-{{ project.color }}">
+  <div class="project-card-top">
+    <span class="task-key">{{ project.key }}</span>
+    <span class="badge{% if project.is_team %} badge-team{% endif %}">{{ 'Team' if project.is_team else 'Personal' }}</span>
+  </div>
+  <h2><a href="{{ url_for('tasks.board', project_id=project.id) }}">{{ project.name }}</a></h2>
+  {% if project.description %}<p class="project-card-desc">{{ project.description }}</p>{% endif %}
+  {% if stats %}
+    <div class="progress-row">
+      <progress class="progress" max="{{ stats.total or 1 }}" value="{{ stats.done }}">{{ stats.done }} of {{ stats.total }}</progress>
+      <span>{{ stats.done }} of {{ stats.total }} done</span>
+    </div>
+  {% endif %}
+  <div class="project-card-foot">
+    <span>{% if project.due_date %}Due {{ project.due_date|short_date }}{% elif stats and stats.open %}{{ stats.open }} open {{ 'task' if stats.open == 1 else 'tasks' }}{% else %}Owner: {{ project.owner.display_name }}{% endif %}</span>
+    {% if stats and stats.people %}
+      <span class="avatar-stack">{% for user in stats.people[:4] %}{{ avatar(user, 'small') }}{% endfor %}</span>
+    {% endif %}
+  </div>
+</article>
+{% endmacro %}

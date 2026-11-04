@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, avatar %}
+{% block title %}{{ team.name }} - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  {% set manage = can.can_manage_team(g.user, team) %}
+  <div class="page-head">
+    <div>
+      <p class="kicker"><a href="{{ url_for('teams.index') }}">Teams</a></p>
+      <h1>{{ team.name }}</h1>
+      <p class="lead">Made by {{ team.created_by.display_name }}.{% if manage %} You choose who is in it.{% endif %}</p>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head"><h2>People</h2><span class="muted small">{{ team.members|length }} in this Team</span></div>
+    <ul class="people-list">
+      {% for user in team.members %}
+        <li class="person-row">
+          {{ avatar(user) }}
+          <span class="person-name">{{ user.display_name }}{% if user.id == g.user.id %} (you){% endif %}<small>@{{ handle(user) }}</small></span>
+          {% if user.id == team.created_by_id %}<span class="badge">Manages the Team</span>{% endif %}
+          {% if manage and user.id != g.user.id %}
+            <form method="post" action="{{ url_for('teams.remove_member', team_id=team.id, user_id=user.id) }}">
+              {{ csrf() }}<button class="button button-danger button-small" type="submit">Remove</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% if manage %}
+      <form method="post" action="{{ url_for('teams.add_member', team_id=team.id) }}" class="filters section-gap">
+        {{ csrf() }}
+        <label>Username<input type="text" name="username" required placeholder="e.g. ana" autocomplete="off"></label>
+        <div class="form-actions"><button class="button" type="submit">Add person</button></div>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="section">
+    <div class="section-head"><h2>Shared Projects</h2><span class="muted small">Everyone in the Team gets these roles.</span></div>
+    {% if shared %}
+      <ul class="people-list">
+        {% for project, role in shared %}
+          <li class="person-row">
+            <span class="dot color-{{ project.color }}" aria-hidden="true"></span>
+            <span class="person-name"><a href="{{ url_for('tasks.board', project_id=project.id) }}">{{ project.name }}</a></span>
+            <span class="badge badge-role role-{{ role }}">{{ role|title }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">No projects are shared with this Team yet. A project's Manager can add it on the Members tab.</p>
+    {% endif %}
+    {% if hidden_count %}<p class="muted small">And {{ hidden_count }} more you can't open.</p>{% endif %}
+  </section>
+
+  <section class="section">
+    {% if manage %}
+      <div class="settings">
+        <section class="setting">
+          <div class="setting-text"><h2>Rename</h2></div>
+          <form method="post" action="{{ url_for('teams.rename', team_id=team.id) }}" class="filters">
+            {{ csrf() }}
+            <label>Name<input type="text" name="name" value="{{ team.name }}" required maxlength="60"></label>
+            <div class="form-actions"><button class="button" type="submit">Save name</button></div>
+          </form>
+        </section>
+        <section class="setting setting-danger">
+          <div class="setting-text"><h2>Delete Team</h2><p>Its people lose the access the Team gave them.</p></div>
+          <form method="post" action="{{ url_for('teams.delete', team_id=team.id) }}" class="form-actions" data-confirm="Delete {{ team.name }}?">
+            {{ csrf() }}<button class="button button-danger" type="submit">Delete Team</button>
+          </form>
+        </section>
+      </div>
+    {% else %}
+      <form method="post" action="{{ url_for('teams.remove_member', team_id=team.id, user_id=g.user.id) }}" class="form-actions" data-confirm="Leave {{ team.name }}? You lose the projects it shares.">
+        {{ csrf() }}<button class="button button-danger" type="submit">Leave Team</button>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}

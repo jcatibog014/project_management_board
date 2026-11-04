@@ -1,0 +1,25 @@
+{# The top of every project page: name, badges and the tabs.
+   {% call project_head(project, access, 'board') %}buttons{% endcall %}, or {{ project_head(...) }} without buttons. #}
+{% macro project_head(project, access, tab) %}
+<div class="page-head">
+  <div>
+    <div class="title-row">
+      <span class="dot color-{{ project.color }}" aria-hidden="true"></span>
+      <h1>{{ project.name }}</h1>
+      <span class="badge{% if project.is_team %} badge-team{% endif %}">{{ 'Team' if project.is_team else 'Personal' }}</span>
+      {% if project.is_team %}<span class="badge badge-role role-{{ access.role }}" title="Your role in this project">{{ access.role|title }}</span>{% endif %}
+      {% if project.is_archived %}<span class="badge badge-archived">Archived</span>{% endif %}
+    </div>
+    {% if project.description %}<p class="lead">{{ project.description|truncate(160) }}</p>{% endif %}
+  </div>
+  {% if caller is defined %}<div class="head-actions">{{ caller() }}</div>{% endif %}
+</div>
+<nav class="tabs" aria-label="Project">
+  {% for name, endpoint, label in project_tabs(project) %}
+    <a href="{{ url_for(endpoint, project_id=project.id) }}"{% if tab == name %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{% if project.is_archived %}
+  <p class="demo-note">This project is archived, so it is read-only.{% if can.is_owner(access) %} You can bring it back in Settings.{% endif %}</p>
+{% endif %}
+{% endmacro %}

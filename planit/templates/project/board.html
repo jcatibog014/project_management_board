@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_task_card.html" import task_card with context %}
+{% from "project/_head.html" import project_head with context %}
+{% block title %}{{ project.name }} - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  {% call project_head(project, access, 'board') %}
+    {% if can.can_create_task(access) %}
+      <a class="button" href="{{ url_for('tasks.new', project_id=project.id) }}">{{ icon('plus') }} New task</a>
+    {% endif %}
+  {% endcall %}
+
+  <div class="board" data-board>
+    {% for status in workflow.STATUSES %}
+      {% set cards = columns[status] %}
+      {% set limit = limits.get(status) %}
+      <section class="column status-{{ status }}" id="column-{{ status }}" data-status="{{ status }}" aria-labelledby="head-{{ status }}">
+        <div class="column-head">
+          <h2 id="head-{{ status }}">{{ workflow.name(status) }}</h2>
+          <span class="column-count{% if limit and cards|length >= limit %} is-full{% endif %}"
+                title="{% if limit %}At most {{ limit }} tasks here{% else %}{{ cards|length }} tasks{% endif %}">
+            {{ cards|length }}{% if limit %} / {{ limit }}{% endif %}</span>
+        </div>
+        <div class="column-list" data-column-list>
+          {% for task in cards %}
+            {{ task_card(task, access, workflow.allowed_moves(access, task)) }}
+          {% else %}
+            <p class="column-empty">{% if status == 'done' %}Approved tasks land here{% elif status == 'review' %}Nothing waiting for review{% else %}No tasks{% endif %}</p>
+          {% endfor %}
+        </div>
+        {% if status in ('backlog', 'todo') and can.can_create_task(access) %}
+          <form method="post" action="{{ url_for('tasks.new', project_id=project.id) }}" class="add-task">
+            {{ csrf() }}
+            <input type="hidden" name="quick" value="1">
+            <input type="hidden" name="status" value="{{ status }}">
+            <label class="visually-hidden" for="add-{{ status }}">New task in {{ workflow.name(status) }}</label>
+            <input type="text" id="add-{{ status }}" name="title" placeholder="Add a task" maxlength="200" required>
+            <button class="button button-quiet button-small" type="submit" aria-label="Add">{{ icon('plus', 16) }}</button>
+          </form>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </div>
+  <p class="board-legend">
+    <span>Drag a card, or use its {{ icon('more', 14) }} menu, to move it.</span>
+    {% if not can.can_create_task(access) and not access.archived %}<span>As a Viewer you can look and comment.</span>{% endif %}
+    {% if access.role == 'member' %}<span>Members move the tasks given to them. A Manager approves work in review.</span>{% endif %}
+  </p>
+  <p class="move-message" role="status" data-move-message hidden></p>
+{% endblock %}

@@ -1,0 +1,30 @@
+{# One line of history as a sentence: "Ana moved WEB-3 Login page from To Do to In Progress". #}
+{% from "_macros.html" import avatar %}
+{% macro activity_line(entry, show_task=True, show_project=False) %}
+  {% set who = entry.actor.display_name if entry.actor else 'Someone who left' %}
+  {% if entry.task %}
+    {% set what %}<a href="{{ url_for('tasks.show', project_id=entry.project_id, number=entry.task.number) }}">{{ entry.task.key }}</a> {{ entry.task.title }}{% endset %}
+  {% else %}
+    {% set what %}<strong>{{ entry.note }}</strong>{% endset %}
+  {% endif %}
+  {% set what = what if show_task else 'the task' %}
+  <li class="feed-item">
+    {{ avatar(entry.actor, 'small') }}
+    <span class="feed-text">
+      <strong>{{ who }}</strong>
+      {% if entry.verb == 'created' %}added {{ what }} to {{ workflow.name(entry.to_status) if entry.to_status else 'the board' }}
+      {% elif entry.verb == 'moved' %}moved {{ what }} from {{ workflow.name(entry.from_status) }} to {{ workflow.name(entry.to_status) }}
+      {% elif entry.verb == 'approved' %}approved {{ what }}: it is Done
+      {% elif entry.verb == 'sent_back' %}sent {{ what }} back to In Progress
+      {% elif entry.verb == 'reopened' %}reopened {{ what }}
+      {% elif entry.verb == 'assigned' %}{% if entry.other_user_id == entry.actor_id %}took {{ what }}{% else %}gave {{ what }} to {{ entry.other_user.display_name if entry.other_user else 'someone who left' }}{% endif %}
+      {% elif entry.verb == 'unassigned' %}made {{ what }} unassigned
+      {% elif entry.verb == 'edited' %}edited {{ what }}
+      {% elif entry.verb == 'deleted' %}deleted {{ what }}
+      {% elif entry.verb == 'commented' %}commented on {{ what }}
+      {% else %}changed {{ what }}{% endif %}
+      {% if show_project %}<span class="muted"> in {{ entry.project.name }}</span>{% endif %}
+    </span>
+    <time datetime="{{ entry.created_at.isoformat() }}Z" title="{{ entry.created_at|nice_datetime }}">{{ entry.created_at|ago }}</time>
+  </li>
+{% endmacro %}

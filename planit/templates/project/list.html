@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_task_card.html" import task_row with context %}
+{% from "project/_head.html" import project_head with context %}
+{% block title %}List - {{ project.name }} - {{ APP_NAME }}{% endblock %}
+{% macro choice(name, value, text) %}<option value="{{ value }}"{% if filters.get(name)|string == value|string %} selected{% endif %}>{{ text }}</option>{% endmacro %}
+{% block content %}
+  {% call project_head(project, access, 'list') %}
+    {% if can.can_create_task(access) %}
+      <a class="button" href="{{ url_for('tasks.new', project_id=project.id) }}">{{ icon('plus') }} New task</a>
+    {% endif %}
+  {% endcall %}
+  <form method="get" class="filters" aria-label="Filter tasks">
+    <label>Assignee
+      <select name="who" data-auto-submit>
+        {{ choice('who', '', 'Anyone') }}{{ choice('who', 'me', 'Me') }}{{ choice('who', 'nobody', 'Nobody yet') }}
+        {% for user in people if user.id != g.user.id %}{{ choice('who', user.id, user.display_name) }}{% endfor %}
+      </select></label>
+    <label>Status
+      <select name="status" data-auto-submit>
+        {{ choice('status', '', 'Any') }}{{ choice('status', 'open', 'Not done') }}
+        {% for status in workflow.STATUSES %}{{ choice('status', status, workflow.name(status)) }}{% endfor %}
+      </select></label>
+    <label>Label
+      <select name="label" data-auto-submit>
+        {{ choice('label', '', 'Any') }}
+        {% for label in labels %}{{ choice('label', label.id, label.name) }}{% endfor %}
+      </select></label>
+    <label>Priority
+      <select name="priority" data-auto-submit>
+        {{ choice('priority', '', 'Any') }}
+        {% for value, text in priorities.items() %}{{ choice('priority', value, text) }}{% endfor %}
+      </select></label>
+    <label>Deadline
+      <select name="due" data-auto-submit>
+        {{ choice('due', '', 'Any') }}
+        {% for value, text in due_filters.items() %}{{ choice('due', value, text) }}{% endfor %}
+      </select></label>
+    <div class="form-actions">
+      {% if filters %}<a class="button button-quiet" href="{{ url_for('tasks.task_list_view', project_id=project.id) }}">Clear</a>{% endif %}
+      <button class="button" type="submit" data-auto-submit-button>Filter</button>
+    </div>
+  </form>
+  <p class="muted small section-gap">{{ rows|length }} {{ 'task' if rows|length == 1 else 'tasks' }}{% if filters %} match{% endif %}</p>
+  {% if rows %}
+    <div class="task-rows section-gap">{% for task in rows %}{{ task_row(task, show_project=False) }}{% endfor %}</div>
+  {% else %}
+    <div class="empty-state section-gap">
+      <h2>{{ 'No Matching Tasks' if filters else 'No Tasks Yet' }}</h2>
+      <p>{{ 'Try fewer filters.' if filters else 'Add a task on the board.' }}</p>
+    </div>
+  {% endif %}
+{% endblock %}
