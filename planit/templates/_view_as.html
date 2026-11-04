@@ -1,0 +1,18 @@
+{# The demo's View As choice: see the team projects through another role's eyes. #}
+{% from "_macros.html" import csrf %}
+{% macro view_as_form(id, class='') %}
+  <form method="post" action="{{ url_for('auth.view_as') }}" class="{{ class }}">
+    {{ csrf() }}
+    <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+    <label for="{{ id }}">View team projects as</label>
+    <div class="view-as-row">
+      <select name="role" id="{{ id }}" data-auto-submit>
+        <option value="">My own roles</option>
+        {% for role in ('manager', 'member', 'viewer') %}
+          <option value="{{ role }}"{% if g.view_as == role %} selected{% endif %}>{{ role|title }}</option>
+        {% endfor %}
+      </select>
+      <button class="button button-small" type="submit" data-auto-submit-button>Apply</button>
+    </div>
+  </form>
+{% endmacro %}

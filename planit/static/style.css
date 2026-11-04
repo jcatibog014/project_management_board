@@ -781,3 +781,5 @@ input[type="date"] { height: var(--control-height); padding-top: 0; padding-bott
 .chart-table summary { cursor: pointer; color: var(--muted); }
 .chart-table .table { margin-top: 0.5rem; }
 .dash-grid .card + .card { margin-top: 0; }
+/* Cards with and without a Move menu keep the same top row. */
+.task-card-top { min-height: 2rem; }

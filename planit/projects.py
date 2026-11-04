@@ -133,8 +133,15 @@ def assignable(s, project):
     return [person.user for person in people(s, project) if RANK[person.role] >= RANK[MEMBER]]
 
 
-def find_user(s, username):
-    return s.scalar(select(User).where(User.username == username.strip().lower(), User.is_demo.is_(False)))
+def find_user(s, username, searcher):
+    """The person to add, by username. The demo and the real site never mix: a
+    demo visitor only finds their own sample teammates (demo-<tag>-ana as "ana"),
+    and real people never find demo users."""
+    name = username.strip().lower().lstrip("@")
+    if searcher.is_demo:
+        tag = searcher.username.split("-")[1]
+        return s.scalar(select(User).where(User.username == f"demo-{tag}-{name}", User.is_demo.is_(True)))
+    return s.scalar(select(User).where(User.username == name, User.is_demo.is_(False)))
 
 
 def add_person(s, project, user, role, actor=None):

@@ -26,7 +26,8 @@ def url(team, path=""):
 def test_quick_add_from_a_column_numbers_tasks_in_order(app, team):
     client = browser(app, team.member)
     for title in ("First", "Second"):
-        assert post(client, url(team, "/tasks/new"), {"quick": "1", "title": title, "status": BACKLOG}).status_code == 302
+        response = post(client, url(team, "/tasks/new"), {"quick": "1", "title": title, "status": BACKLOG})
+        assert response.status_code == 302
     first, second = get_task(app, team.project, 1), get_task(app, team.project, 2)
     assert (first.title, first.status, second.title) == ("First", BACKLOG, "Second")
     assert b"WEB-2" in client.get(url(team)).data

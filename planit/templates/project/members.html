@@ -23,7 +23,7 @@
         <li class="person-row">
           {{ avatar(person.user) }}
           <span class="person-name">{{ person.user.display_name }}{% if person.user.id == g.user.id %} (you){% endif %}
-            <small>@{{ person.user.username }}
+            <small>@{{ handle(person.user) }}
               {%- if person.is_owner %} &middot; owns the project
               {%- else %}
                 {%- if person.direct_role %} &middot; own role: {{ person.direct_role|title }}{% endif %}

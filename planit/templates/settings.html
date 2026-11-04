@@ -18,7 +18,16 @@
       </fieldset>
     </section>
 
-    {% block demo_settings %}{% endblock %}
+    {% if g.user.is_demo %}
+      {% from "_view_as.html" import view_as_form with context %}
+      <section class="setting">
+        <div class="setting-text">
+          <h2>View As</h2>
+          <p>See the demo's team projects as a Manager, a Member or a Viewer. Buttons, moves and pages change with the role. Owning a project stays real.</p>
+        </div>
+        {{ view_as_form('view-as-settings', 'stack') }}
+      </section>
+    {% endif %}
 
     {# The demo sees these as examples, switched off. The server refuses its changes anyway. #}
     {% set locked = 'disabled' if g.user.is_demo else '' %}

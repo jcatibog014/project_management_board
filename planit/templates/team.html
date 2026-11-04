@@ -17,7 +17,7 @@
       {% for user in team.members %}
         <li class="person-row">
           {{ avatar(user) }}
-          <span class="person-name">{{ user.display_name }}{% if user.id == g.user.id %} (you){% endif %}<small>@{{ user.username }}</small></span>
+          <span class="person-name">{{ user.display_name }}{% if user.id == g.user.id %} (you){% endif %}<small>@{{ handle(user) }}</small></span>
           {% if user.id == team.created_by_id %}<span class="badge">Manages the Team</span>{% endif %}
           {% if manage and user.id != g.user.id %}
             <form method="post" action="{{ url_for('teams.remove_member', team_id=team.id, user_id=user.id) }}">

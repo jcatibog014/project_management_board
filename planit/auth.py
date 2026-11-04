@@ -19,7 +19,7 @@ from datetime import timedelta
 import click
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 from flask.cli import with_appcontext
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -45,6 +45,12 @@ RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 WRONG_LOGIN = "Wrong username or password."
 WRONG_RECOVERY = "Wrong username or recovery code."
 LOCKED = "Too many failed attempts. Please wait 15 minutes and try again."
+
+# Every visitor who presses Try Demo gets their own sample company, deleted after a day.
+DEMO_LIFETIME = timedelta(hours=24)
+# What the demo's View As can play in its team projects. Owning stays real:
+# only the actual owner can archive, delete or transfer.
+VIEW_AS_ROLES = ("manager", "member", "viewer")
 
 
 # ---------- Users in the database ----------
@@ -145,6 +151,27 @@ def check_recovery(s, username, code, moment):
     return user, None
 
 
+def purge_demos(s, moment):
+    """Delete every demo that has run out, with everything in it. The database
+    does the rest: projects, tasks and Teams are deleted with their owner."""
+    gone = s.execute(delete(User).where(User.is_demo.is_(True), User.demo_expires_at <= moment))
+    return gone.rowcount
+
+
+def start_demo(s, moment):
+    """A fresh demo visitor ("Sam Rivera") and their sample company. The caller commits."""
+    from . import seed
+
+    purge_demos(s, moment)
+    tag = secrets.token_hex(4)
+    # Nobody knows this password: a demo is only opened with the button (and
+    # find_user() never finds demo users, so the login form can't open one).
+    user = create_user(s, f"demo-{tag}-sam", secrets.token_urlsafe(32), display_name="Sam Rivera", is_demo=True)
+    user.demo_expires_at = moment + DEMO_LIFETIME
+    seed.build(s, user, moment)
+    return user
+
+
 def safe_next(target, default=None):
     """Only go back to a page on this site (after logging in or saving a form).
 
@@ -186,6 +213,9 @@ def load_user():
         session.pop("session_version", None)
         return
     g.user = user
+    # The demo's View As choice (permissions.effective_role uses it).
+    if user.is_demo and session.get("view_as") in VIEW_AS_ROLES:
+        g.view_as = session["view_as"]
 
 
 def csrf_token():
@@ -243,6 +273,31 @@ def login():
             return redirect(safe_next(next_page))
     status = 401 if error else 200
     return render_template("login.html", error=error, username=username, next=next_page), status
+
+
+@bp.post("/demo")
+def demo():
+    s = db.session()
+    user = start_demo(s, utcnow())
+    s.commit()
+    log_in(user)
+    flash("Welcome to the demo! You are Sam Rivera at Orbit Labs. Try every role with View As in the menu.")
+    return redirect(url_for("main.home"))
+
+
+@bp.post("/demo/view-as")
+@login_required
+def view_as():
+    if not g.user.is_demo:
+        abort(403, "View As is only for the demo.")
+    role = request.form.get("role", "")
+    if role in VIEW_AS_ROLES:
+        session["view_as"] = role
+        flash(f"You now see the team projects as a {role.title()}.")
+    else:
+        session.pop("view_as", None)
+        flash("You now see your own roles again.")
+    return redirect(safe_next(request.form.get("next")))
 
 
 @bp.route("/signup", methods=["GET", "POST"])
@@ -388,9 +443,20 @@ def set_password_command(username):
     click.echo("The password is changed.")
 
 
+@click.command("purge-demos")
+@with_appcontext
+def purge_demos_command():
+    """Delete the demos that have run out (starting a demo does this too)."""
+    s = db.session()
+    count = purge_demos(s, utcnow())
+    s.commit()
+    click.echo(f"Deleted {count} old demo users.")
+
+
 def init_app(app):
     from . import permissions
 
     app.jinja_env.globals["csrf_token"] = csrf_token
     app.jinja_env.globals["can"] = permissions
     app.cli.add_command(set_password_command)
+    app.cli.add_command(purge_demos_command)

@@ -81,6 +81,11 @@ def create_app(test_config=None):
     def healthz():
         return "ok"
 
+    @app.get("/favicon.ico")
+    def favicon():
+        # Some browsers ask for it at the root, whatever the page says.
+        return app.send_static_file("icons/favicon.ico")
+
     @app.after_request
     def security_headers(response):
         response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)

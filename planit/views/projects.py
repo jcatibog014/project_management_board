@@ -72,7 +72,7 @@ def new():
         chosen_teams = [team for team in teams if str(team.id) in request.form.getlist("team_ids")]
         people, missing = [], []
         for name in request.form.get("usernames", "").replace(",", " ").split():
-            user = projects.find_user(s, name)
+            user = projects.find_user(s, name, g.user)
             (people.append(user) if user else missing.append(name))
         if missing:
             errors["usernames"] = "We couldn't find: " + ", ".join(missing)
@@ -127,7 +127,7 @@ def add_person(project_id):
     require(can.can_manage_people(access))
     s = db.session()
     role = form_choice("role", can.roles_you_can_give(access))
-    user = projects.find_user(s, request.form.get("username", ""))
+    user = projects.find_user(s, request.form.get("username", ""), g.user)
     if user is None:
         return back_to_members(project, "We couldn't find anyone with that username.")
     current = s.get(ProjectMember, (project.id, user.id))

@@ -40,7 +40,8 @@ def summary(rows, day=None):
     return Summary(
         total=len(rows), done=len(done), open=len(rows) - len(done),
         overdue=sum(1 for task in rows if task.status != DONE and task.due_date and task.due_date < day),
-        finished_this_week=sum(1 for task in done if task.completed_at and to_local(task.completed_at).date() >= week_ago))
+        finished_this_week=sum(1 for task in done
+                               if task.completed_at and to_local(task.completed_at).date() >= week_ago))
 
 
 def by_status(rows):

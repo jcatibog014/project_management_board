@@ -74,7 +74,7 @@ def add_member(team_id):
     team = load(team_id)
     require_manager(team)
     s = db.session()
-    user = projects.find_user(s, request.form.get("username", ""))
+    user = projects.find_user(s, request.form.get("username", ""), g.user)
     if user is None:
         flash("We couldn't find anyone with that username.")
     elif user in team.members:

@@ -18,7 +18,7 @@
     </fieldset>
     {{ field('name', 'Name', values.name, errors.name, attrs='required maxlength="80" autofocus') }}
     <div class="field-row">
-      {{ field('key', 'Key', values.key, errors.key, hint='Like WEB (optional)', attrs='maxlength="5"') }}
+      {{ field('key', 'Key', values.key, errors.key, hint='Optional, like WEB', attrs='maxlength="5"') }}
       <label class="field">
         <span class="field-label">Colour</span>
         <select name="color">

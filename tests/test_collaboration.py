@@ -110,7 +110,8 @@ def test_review_approve_and_assign_notify_the_right_people(app, team):
     post(browser(app, team.manager), f"{base}/move", {"to": "done"})
     assert notes(app, team.member) == ["approved"]
     other = make_task(app, team.project, team.owner)
-    post(browser(app, team.manager), f"/projects/{team.project}/tasks/{other}/assign", {"assignee_id": str(team.member)})
+    post(browser(app, team.manager), f"/projects/{team.project}/tasks/{other}/assign",
+         {"assignee_id": str(team.member)})
     assert notes(app, team.member) == ["approved", "assigned"]
 
 

@@ -112,7 +112,7 @@
                   data-confirm="Give {{ project.name }} to someone else? Only they can give it back.">
               {{ csrf() }}
               <label class="field"><span class="field-label">New owner</span>
-                <select name="user_id">{% for user in candidates %}<option value="{{ user.id }}">{{ user.display_name }} (@{{ user.username }})</option>{% endfor %}</select>
+                <select name="user_id">{% for user in candidates %}<option value="{{ user.id }}">{{ user.display_name }} (@{{ handle(user) }})</option>{% endfor %}</select>
               </label>
               <div class="form-actions"><button class="button button-quiet" type="submit">Transfer ownership</button></div>
             </form>

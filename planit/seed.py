@@ -147,6 +147,8 @@ def build(s, user, now):
     w.teammates()
     design = w.team("Design Team", "me", ["me", "ana", "ben"])
     dev_team = w.team("Dev Team", "dev", ["dev", "eli", "cara", "me"])
+    # The visitor is not in this one, so they stay a Viewer of Marketing Plan.
+    marketing_team = w.team("Marketing Team", "cara", ["cara", "ana", "ben"])
 
     # ----- Website Revamp: the visitor owns it -----
     web = w.project("Website Revamp", "WEB", "me", "blue", due_in=24,
@@ -155,18 +157,21 @@ def build(s, user, now):
     s.add(WipLimit(project_id=web.id, status=IN_PROGRESS, max_tasks=3))
     w.task(web, "Write the new homepage copy", BACKLOG, by="ana", labels=["Feature"], age=12)
     w.task(web, "Collect customer quotes", BACKLOG, due_in=12, by="cara", age=9)
-    login_page = w.task(web, "Design the login page", TODO, due_in=-1, priority="high", labels=["Design"], by="ana", age=8,
-           description="Match the new brand colours. Keep **one** big button and a link to sign up.")
+    login_page = w.task(web, "Design the login page", TODO, due_in=-1, priority="high", labels=["Design"], by="ana",
+                        age=8,
+                        description="Match the new brand colours. Keep **one** big button and a link to sign up.")
     w.task(web, "Pick the colour palette", TODO, "ana", due_in=2, labels=["Design"], age=6,
            steps=[("Collect three options", True), ("Check contrast", False), ("Ask the team", False)])
     nav = w.task(web, "Build the navigation bar", IN_PROGRESS, "me", due_in=1, priority="high", labels=["Feature"],
-           age=10, steps=[("Desktop menu", True), ("Phone menu", True), ("Keyboard support", False)],
-           description="The menu at the top of every page.\n\n- Logo on the left\n- Five links\n- A search button")
+                 age=10, steps=[("Desktop menu", True), ("Phone menu", True), ("Keyboard support", False)],
+                 description="The menu at the top of every page.\n\n"
+                             "- Logo on the left\n- Five links\n- A search button")
     w.task(web, "Set up the contact form", IN_PROGRESS, "ana", due_in=5, labels=["Feature"], age=7)
     w.task(web, "Fix the broken footer links", IN_PROGRESS, "ben", due_in=0, priority="urgent", labels=["Bug"],
            age=3, by="cara")
     speed = w.task(web, "Make pages load faster", REVIEW, "cara", due_in=3, labels=["Feature"], age=14,
-           steps=[("Smaller pictures", True), ("Cache the fonts", True)])
+                   steps=[("Smaller pictures", True), ("Cache the fonts", True)],
+                   description="The home page takes **4 seconds** on a phone. Aim for under 2.")
     w.task(web, "Choose the new logo", DONE, "ana", labels=["Design"], age=30, finished=18)
     w.task(web, "Move the domain to the new host", DONE, "me", age=40, finished=33)
     w.task(web, "Write the style guide", DONE, "ben", labels=["Design"], age=25, finished=10)
@@ -180,8 +185,9 @@ def build(s, user, now):
     w.task(app, "Write the store description", BACKLOG, by="eli", age=5)
     w.task(app, "Add dark mode", TODO, by="cara", labels=["Feature"], age=4)
     sign_in = w.task(app, "Sign-in with a code", TODO, "me", due_in=6, labels=["Feature"], by="eli", age=6)
-    crash = w.task(app, "Crash when opening settings", IN_PROGRESS, "me", due_in=-2, priority="urgent", labels=["Bug"],
-           by="eli", age=4, steps=[("Find the cause", True), ("Write a fix", False), ("Test on Android", False)])
+    crash = w.task(app, "Crash when opening settings", IN_PROGRESS, "me", due_in=-2, priority="urgent",
+                   labels=["Bug"], by="eli", age=4,
+                   steps=[("Find the cause", True), ("Write a fix", False), ("Test on Android", False)])
     w.task(app, "Push notifications", IN_PROGRESS, "cara", due_in=8, labels=["Feature"], by="dev", age=9)
     icon = w.task(app, "App icon in all sizes", REVIEW, "me", due_in=1, labels=["Design"], by="dev", age=11)
     w.task(app, "Set up the test phones", DONE, "eli", age=35, finished=27)
@@ -192,12 +198,12 @@ def build(s, user, now):
     # ----- Marketing Plan: the visitor can only look and comment -----
     marketing = w.project("Marketing Plan", "MKT", "cara", "orange", due_in=55,
                           description="How we tell people about the launch.",
-                          people={"me": VIEWER, "ana": MEMBER, "ben": MANAGER},
+                          people={"me": VIEWER, "ben": MANAGER}, teams={marketing_team: MEMBER},
                           labels=(("Social", "pink"), ("Email", "teal"), ("Event", "yellow")))
     w.task(marketing, "Launch video script", TODO, "ana", due_in=9, labels=["Social"], by="cara", age=6)
     w.task(marketing, "Newsletter for December", IN_PROGRESS, "ben", due_in=4, labels=["Email"], by="cara", age=8)
     venue = w.task(marketing, "Book the launch party venue", REVIEW, "cara", due_in=-3, priority="high",
-           labels=["Event"], by="cara", age=13)
+                   labels=["Event"], by="cara", age=13)
     w.task(marketing, "Logo stickers", DONE, "ana", labels=["Event"], by="cara", age=30, finished=15)
 
     # ----- Learn Flask: personal -----

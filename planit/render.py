@@ -28,7 +28,8 @@ def to_html(markdown_text):
 
 
 def init_app(app):
-    from .comments import with_mentions
+    from .comments import handle, with_mentions
 
     app.jinja_env.filters["markdown"] = to_html
     app.jinja_env.globals["with_mentions"] = with_mentions
+    app.jinja_env.globals["handle"] = handle
