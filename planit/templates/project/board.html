@@ -72,7 +72,6 @@
     {% endfor %}
   </div>
   <p class="board-legend">
-    <span>Drag a card, or use its {{ icon('more', 14) }} menu, to move it.</span>
     {% if not can.can_create_task(access) and not access.archived %}<span>As a Viewer you can look and comment.</span>{% endif %}
     {% if access.role == 'member' %}<span>Members move the tasks given to them. A Manager approves work in review.</span>{% endif %}
   </p>
