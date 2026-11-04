@@ -71,6 +71,7 @@ def new(project_id):
         assignee = assignee_from_form(s, project, access)
         if not errors:
             task = task_list.create(s, project, g.user, values.pop("title"), status, **values)
+            task.labels = task_list.chosen_labels(s, project, request.form.getlist("label_ids"))
             if assignee:
                 task_list.assign(s, task, assignee, g.user)
             s.commit()
@@ -83,8 +84,15 @@ def new(project_id):
             return redirect(url_for("tasks.board", project_id=project.id))
         values["status"] = status
         values["assignee_id"] = request.form.get("assignee_id", "")
-    return render_template("project/task_form.html", project=project, access=access, task=None, values=values,
-                           errors=errors, people=projects.assignable(s, project)), 400 if errors else 200
+        values["label_ids"] = request.form.getlist("label_ids")
+    return form_page(s, project, access, None, values, errors)
+
+
+def form_page(s, project, access, task, values, errors):
+    return render_template("project/task_form.html", project=project, access=access, task=task, values=values,
+                           errors=errors, people=projects.assignable(s, project),
+                           labels=task_list.project_labels(s, project),
+                           priorities=task_list.PRIORITY_NAMES), 400 if errors else 200
 
 
 # ---------- The task page and editing ----------
@@ -106,15 +114,20 @@ def edit(project_id, number):
     require(can.can_edit_task(access, task))
     s = db.session()
     values = {"title": task.title, "description": task.description, "due_date": task.due_date,
-              "assignee_id": task.assignee_id or ""}
+              "priority": task.priority, "assignee_id": task.assignee_id or "",
+              "label_ids": [str(label.id) for label in task.labels]}
     errors = {}
     if request.method == "POST":
         new_values, errors = task_list.clean_form(request.form)
         values.update(new_values)
+        values["label_ids"] = request.form.getlist("label_ids")
         if not errors:
             changed = any(getattr(task, name) != value for name, value in new_values.items())
             for name, value in new_values.items():
                 setattr(task, name, value)
+            labels = task_list.chosen_labels(s, project, values["label_ids"])
+            if labels != task.labels:
+                task.labels, changed = labels, True
             if can.can_assign_anyone(access) and "assignee_id" in request.form:
                 task_list.assign(s, task, assignee_from_form(s, project, access), g.user)
             if changed:
@@ -123,8 +136,49 @@ def edit(project_id, number):
             s.commit()
             flash("The task was saved.")
             return redirect(url_for("tasks.show", project_id=project.id, number=task.number))
-    return render_template("project/task_form.html", project=project, access=access, task=task, values=values,
-                           errors=errors, people=projects.assignable(s, project)), 400 if errors else 200
+    return form_page(s, project, access, task, values, errors)
+
+
+# ---------- The checklist ----------
+
+def checklist_item(task, item_id):
+    item = next((item for item in task.checklist if item.id == item_id), None)
+    if item is None:
+        abort(404)
+    return item
+
+
+def back_to_checklist(project, task):
+    return redirect(url_for("tasks.show", project_id=project.id, number=task.number) + "#checklist")
+
+
+@bp.post("/projects/<int:project_id>/tasks/<int:number>/checklist")
+@login_required
+def add_check(project_id, number):
+    project, access, task = load_task(project_id, number)
+    require(can.can_edit_task(access, task))
+    problem = task_list.add_check(task, request.form.get("text"))
+    if problem:
+        flash(problem)
+    else:
+        db.session().commit()
+    return back_to_checklist(project, task)
+
+
+@bp.post("/projects/<int:project_id>/tasks/<int:number>/checklist/<int:item_id>")
+@login_required
+def change_check(project_id, number, item_id):
+    """Tick or untick a step, or delete it."""
+    project, access, task = load_task(project_id, number)
+    require(can.can_edit_task(access, task))
+    item = checklist_item(task, item_id)
+    if request.form.get("action") == "delete":
+        task.checklist.remove(item)
+    else:
+        item.done = not item.done
+    task.updated_at = utcnow()
+    db.session().commit()
+    return back_to_checklist(project, task)
 
 
 @bp.post("/projects/<int:project_id>/tasks/<int:number>/delete")

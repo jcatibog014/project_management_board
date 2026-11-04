@@ -10,6 +10,22 @@
   {% endif %}
 {% endmacro %}
 
+{# Low and Medium are the usual, so cards only flag High and Urgent. #}
+{% macro priority_badge(task, always=False) %}
+  {% if always or task.priority in ('high', 'urgent') %}
+    <span class="priority priority-{{ task.priority }}" title="{{ task.priority|title }} priority">{{ icon('flag', 13) }} {{ task.priority|title }}</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro label_chips(task, limit=3) %}
+  {% if task.labels %}
+    <div class="chips">
+      {% for label in task.labels[:limit] %}<span class="label-chip color-{{ label.color }}">{{ label.name }}</span>{% endfor %}
+      {% if task.labels|length > limit %}<span class="label-chip color-gray">+{{ task.labels|length - limit }}</span>{% endif %}
+    </div>
+  {% endif %}
+{% endmacro %}
+
 {% macro task_card(task, access, moves) %}
 <article class="task-card status-{{ task.status }}" id="task-{{ task.number }}"
          {% if moves %}draggable="true" data-moves="{{ moves|map(attribute=0)|join(' ') }}"
@@ -34,8 +50,13 @@
     {% endif %}
   </div>
   <a class="task-card-title" href="{{ url_for('tasks.show', project_id=task.project_id, number=task.number) }}">{{ task.title }}</a>
+  {{ label_chips(task) }}
   <div class="task-card-meta">
+    {{ priority_badge(task) }}
     {{ due_badge(task) }}
+    {% if task.checklist %}
+      <span class="meta-item{% if task.checked == task.checklist|length %} steps-done{% endif %}" title="{{ task.checked }} of {{ task.checklist|length }} steps done">{{ icon('checklist', 13) }} {{ task.checked }}/{{ task.checklist|length }}</span>
+    {% endif %}
     {{ caller() if caller is defined else '' }}
     {{ avatar(task.assignee, 'small') }}
   </div>

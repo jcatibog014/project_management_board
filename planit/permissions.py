@@ -152,6 +152,11 @@ def can_set_limits(access):
     return access.writable and access.at_least(MANAGER)
 
 
+def can_manage_labels(access):
+    """Make, rename and delete the project's labels. (Putting one on a task is editing the task.)"""
+    return access.writable and access.at_least(MANAGER)
+
+
 # ---------- People ----------
 
 def can_manage_people(access):

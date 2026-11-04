@@ -32,9 +32,27 @@
           </select>
         </label>
       {% endif %}
+      <label class="field">
+        <span class="field-label">Priority</span>
+        <select name="priority">
+          {% for value, text in priorities.items() %}<option value="{{ value }}"{% if value == (values.priority or 'medium') %} selected{% endif %}>{{ text }}</option>{% endfor %}
+        </select>
+      </label>
       {{ field('due_date', 'Deadline', values.due_date|input_date, errors.due_date, type='date', hint='Optional') }}
     </div>
-    {% block more_fields %}{% endblock %}
+    {% if labels %}
+      <fieldset class="plain-fieldset field">
+        <legend class="field-label">Labels</legend>
+        <div class="label-picker">
+          {% for label in labels %}
+            <label class="label-option color-{{ label.color }}">
+              <input type="checkbox" name="label_ids" value="{{ label.id }}"{% if label.id|string in (values.label_ids or []) %} checked{% endif %}>
+              <span class="label-chip">{{ label.name }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    {% endif %}
     <div class="form-actions">
       <a class="button button-quiet" href="{{ url_for('tasks.show', project_id=project.id, number=task.number) if task else url_for('tasks.board', project_id=project.id) }}">Cancel</a>
       <button class="button" type="submit">{{ 'Save task' if task else 'Add task' }}</button>

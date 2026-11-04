@@ -9,7 +9,7 @@ from sqlalchemy import select
 from .. import db, invites, permissions as can, projects, tasks, workflow
 from ..auth import login_required, not_demo
 from ..dates import utcnow
-from ..models import COLORS, MEMBER, PERSONAL, TEAM, Project, ProjectMember, ProjectTeam, Team, \
+from ..models import COLORS, MEMBER, PERSONAL, TEAM, Label, Project, ProjectMember, ProjectTeam, Team, \
     User, team_members
 
 bp = Blueprint("projects", __name__)
@@ -78,6 +78,7 @@ def new():
             errors["usernames"] = "We couldn't find: " + ", ".join(missing)
         if not errors:
             project = projects.create(s, g.user, values, kind)
+            tasks.add_starter_labels(s, project)
             if kind == TEAM:
                 for team in chosen_teams:
                     projects.add_team(s, project, team, MEMBER)
@@ -295,7 +296,52 @@ def settings(project_id):
                   if not person.is_owner and person.direct_role]
     return render_template("project/settings.html", project=project, access=access, values=values,
                            errors=errors, colors=COLORS, candidates=candidates,
-                           limits=workflow.limits(s, project)), 400 if errors else 200
+                           limits=workflow.limits(s, project), labels=tasks.project_labels(s, project)), \
+        400 if errors else 200
+
+
+@bp.post("/projects/<int:project_id>/labels")
+@login_required
+def add_label(project_id):
+    project, access = load(project_id)
+    require(can.can_manage_labels(access))
+    s = db.session()
+    name, color, problem = tasks.clean_label(request.form)
+    if not problem and any(label.name.lower() == name.lower() for label in tasks.project_labels(s, project)):
+        problem = f"There is already a label called {name}."
+    if problem:
+        flash(problem)
+    else:
+        s.add(Label(project_id=project.id, name=name, color=color))
+        s.commit()
+        flash(f"The label {name} was added.")
+    return redirect(url_for("projects.settings", project_id=project.id) + "#labels")
+
+
+@bp.post("/projects/<int:project_id>/labels/<int:label_id>")
+@login_required
+def change_label(project_id, label_id):
+    project, access = load(project_id)
+    require(can.can_manage_labels(access))
+    s = db.session()
+    label = s.get(Label, label_id)
+    if label is None or label.project_id != project.id:
+        abort(404)
+    if request.form.get("action") == "delete":
+        s.delete(label)
+        s.commit()
+        flash(f"The label {label.name} was deleted. Its tasks keep everything else.")
+    else:
+        name, color, problem = tasks.clean_label(request.form)
+        clash = any(other.id != label.id and other.name.lower() == name.lower()
+                    for other in tasks.project_labels(s, project))
+        if problem or clash:
+            flash(problem or f"There is already a label called {name}.")
+        else:
+            label.name, label.color = name, color
+            s.commit()
+            flash("The label was saved.")
+    return redirect(url_for("projects.settings", project_id=project.id) + "#labels")
 
 
 @bp.post("/projects/<int:project_id>/archive")

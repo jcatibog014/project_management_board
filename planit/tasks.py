@@ -9,22 +9,33 @@ from sqlalchemy.orm import selectinload
 
 from . import activity, projects
 from .dates import utcnow
-from .models import BACKLOG, DONE, STATUSES, TODO, Project, Task
+from .models import BACKLOG, COLORS, DONE, HIGH, LOW, MEDIUM, PRIORITIES, STATUSES, TODO, URGENT, ChecklistItem, \
+    Label, Project, Task
 
 TITLE_MAX_LENGTH = 200
 DESCRIPTION_MAX_LENGTH = 10_000
 # New tasks can only start at the beginning of the workflow.
 START_STATUSES = (BACKLOG, TODO)
+LABEL_MAX_LENGTH = 30
+CHECK_MAX_LENGTH = 200
+CHECKLIST_MAX_ITEMS = 50
+# Every new project starts with these, so the label picker is never empty.
+STARTER_LABELS = (("Bug", "red"), ("Feature", "blue"), ("Design", "purple"))
 
 
 def card_options():
     """Load what a card shows in one go, not one query per card."""
-    return (selectinload(Task.assignee), selectinload(Task.project))
+    return (selectinload(Task.assignee), selectinload(Task.project), selectinload(Task.labels),
+            selectinload(Task.checklist))
+
+
+PRIORITY_RANK = case((Task.priority == URGENT, 0), (Task.priority == HIGH, 1), (Task.priority == MEDIUM, 2),
+                     else_=3)
 
 
 def order():
-    """Soonest deadline first (no deadline last), then oldest first."""
-    return (case((Task.due_date.is_(None), 1), else_=0), Task.due_date, Task.number)
+    """Most urgent first, then the soonest deadline (no deadline last), then oldest first."""
+    return (PRIORITY_RANK, case((Task.due_date.is_(None), 1), else_=0), Task.due_date, Task.number)
 
 
 def board(s, project):
@@ -58,6 +69,8 @@ def clean_form(form):
         values["due_date"], problem = projects.parse_date(form.get("due_date", "").strip())
         if problem:
             errors["due_date"] = problem
+    if "priority" in form:
+        values["priority"] = form.get("priority") if form.get("priority") in PRIORITIES else MEDIUM
     return values, errors
 
 
@@ -118,3 +131,47 @@ def project_stats(s, project_list):
     return stats
 
 
+
+
+# ---------- Labels ----------
+
+def project_labels(s, project):
+    return s.scalars(select(Label).where(Label.project_id == project.id).order_by(Label.name)).all()
+
+
+def add_starter_labels(s, project):
+    for name, color in STARTER_LABELS:
+        s.add(Label(project_id=project.id, name=name, color=color))
+
+
+def clean_label(form):
+    """(name, color, problem) from a label form."""
+    name = " ".join(form.get("name", "").split())
+    color = form.get("color") if form.get("color") in COLORS else "blue"
+    if not name or len(name) > LABEL_MAX_LENGTH:
+        return name, color, f"Use 1 to {LABEL_MAX_LENGTH} characters."
+    return name, color, None
+
+
+def chosen_labels(s, project, ids):
+    """The project's labels whose ids were ticked (others are ignored)."""
+    wanted = {int(i) for i in ids if str(i).isdigit()}
+    return [label for label in project_labels(s, project) if label.id in wanted]
+
+
+# ---------- Checklist ----------
+
+def add_check(task, text):
+    """Add a step at the end. Returns a problem or None."""
+    text = " ".join((text or "").split())
+    if not text or len(text) > CHECK_MAX_LENGTH:
+        return f"A step needs 1 to {CHECK_MAX_LENGTH} characters."
+    if len(task.checklist) >= CHECKLIST_MAX_ITEMS:
+        return f"A task can have at most {CHECKLIST_MAX_ITEMS} steps."
+    position = max((item.position for item in task.checklist), default=0) + 1
+    task.checklist.append(ChecklistItem(text=text, position=position))
+    task.updated_at = utcnow()
+    return None
+
+
+PRIORITY_NAMES = {LOW: "Low", MEDIUM: "Medium", HIGH: "High", URGENT: "Urgent"}

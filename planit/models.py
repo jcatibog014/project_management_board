@@ -9,7 +9,9 @@
       ├──< invites                                  (one-time links that add a person with a role)
       ├──< wip_limits                               (at most N tasks in a column)
       ├──< activity                                 (the project's history)
+      ├──< labels >── task_labels ──< tasks         (many-to-many: "Bug", "Design")
       └──< tasks ── assignee_id, reporter_id ──> users
+             └──< checklist_items                   (small steps inside a task)
 
 A user is one login. Who may do what in a project is never stored on the
 user: it comes from these links, and permissions.effective_role() picks the
@@ -174,11 +176,34 @@ BACKLOG, TODO, IN_PROGRESS, REVIEW, DONE = "backlog", "todo", "in_progress", "re
 STATUSES = (BACKLOG, TODO, IN_PROGRESS, REVIEW, DONE)
 STATUS_RULE = "status IN ('backlog', 'todo', 'in_progress', 'review', 'done')"
 
+LOW, MEDIUM, HIGH, URGENT = "low", "medium", "high", "urgent"
+PRIORITIES = (LOW, MEDIUM, HIGH, URGENT)
+
+
+class Label(Base):
+    """A coloured tag a project's tasks can have, like "Bug" or "Design"."""
+    __tablename__ = "labels"
+    __table_args__ = (UniqueConstraint("project_id", "name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(30))
+    color: Mapped[str] = mapped_column(String(10), default="blue")
+
+
+# Which task has which labels (many-to-many).
+task_labels = Table(
+    "task_labels", Base.metadata,
+    Column("task_id", ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True),
+    Column("label_id", ForeignKey("labels.id", ondelete="CASCADE"), primary_key=True, index=True),
+)
+
 
 class Task(Base):
     __tablename__ = "tasks"
     __table_args__ = (
         CheckConstraint(STATUS_RULE, name="status"),
+        CheckConstraint("priority IN ('low', 'medium', 'high', 'urgent')", name="priority"),
         # WEB-12 is unique inside its project.
         UniqueConstraint("project_id", "number"),
     )
@@ -189,6 +214,7 @@ class Task(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(12), default=TODO)
+    priority: Mapped[str] = mapped_column(String(8), default=MEDIUM, server_default=MEDIUM)
     # Deleting a person leaves their tasks unassigned, not deleted.
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
     reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
@@ -200,6 +226,10 @@ class Task(Base):
     project: Mapped[Project] = relationship()
     assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id])
     reporter: Mapped[User | None] = relationship(foreign_keys=[reporter_id])
+    labels: Mapped[list[Label]] = relationship(secondary=task_labels, order_by=Label.name)
+    checklist: Mapped[list["ChecklistItem"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan", passive_deletes=True,
+        order_by="ChecklistItem.position, ChecklistItem.id")
 
     @property
     def key(self):
@@ -208,6 +238,24 @@ class Task(Base):
     @property
     def is_done(self):
         return self.status == DONE
+
+    @property
+    def checked(self):
+        """How many checklist items are ticked."""
+        return sum(1 for item in self.checklist if item.done)
+
+
+class ChecklistItem(Base):
+    """One small step inside a task (a subtask), ticked when done."""
+    __tablename__ = "checklist_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    text: Mapped[str] = mapped_column(String(200))
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+    task: Mapped[Task] = relationship(back_populates="checklist")
 
 
 class WipLimit(Base):

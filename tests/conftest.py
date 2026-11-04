@@ -3,7 +3,7 @@ import os
 import pytest
 from sqlalchemy import select
 
-from planit import auth, create_app, db, permissions
+from planit import auth, create_app, db, permissions, tasks
 from planit.models import TEAM, Project, ProjectMember, ProjectTeam, Task, Team, User
 
 # Tests use a fresh SQLite file per test. To check everything on PostgreSQL
@@ -139,7 +139,8 @@ def make_task(app, project_id, reporter_id, title="A task", status="todo", assig
 def get_task(app, project_id, number):
     with app.app_context():
         s = db.session()
-        return s.scalar(select(Task).where(Task.project_id == project_id, Task.number == number))
+        return s.scalar(select(Task).where(Task.project_id == project_id, Task.number == number)
+                        .options(*tasks.card_options()))
 
 
 def role_of(app, user_id, project_id):

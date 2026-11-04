@@ -31,6 +31,46 @@
       </form>
     </section>
 
+    {% set label_editor = can.can_manage_labels(access) %}
+    <section class="setting" id="labels">
+      <div class="setting-text">
+        <h2>Labels</h2>
+        <p>Coloured tags for tasks, like Bug or Design. {% if label_editor %}Deleting one takes it off every task.{% else %}Managers and the owner change them.{% endif %}</p>
+      </div>
+      <div class="label-list">
+        {% for label in labels %}
+          <form method="post" action="{{ url_for('projects.change_label', project_id=project.id, label_id=label.id) }}" class="label-row">
+            {{ csrf() }}
+            <span class="dot color-{{ label.color }}" aria-hidden="true"></span>
+            <fieldset class="plain-fieldset label-row"{% if not label_editor %} disabled{% endif %}>
+              <label class="visually-hidden" for="label-{{ label.id }}">Label name</label>
+              <input type="text" id="label-{{ label.id }}" name="name" value="{{ label.name }}" maxlength="30" required>
+              <label class="visually-hidden" for="label-color-{{ label.id }}">Colour</label>
+              <select name="color" id="label-color-{{ label.id }}">
+                {% for color in colors %}<option value="{{ color }}"{% if color == label.color %} selected{% endif %}>{{ color|title }}</option>{% endfor %}
+              </select>
+              <button class="button button-danger button-small" type="submit" name="action" value="delete">Delete</button>
+              <button class="button button-quiet button-small" type="submit">Save</button>
+            </fieldset>
+          </form>
+        {% else %}
+          <p class="muted">No labels yet.</p>
+        {% endfor %}
+        {% if label_editor %}
+          <form method="post" action="{{ url_for('projects.add_label', project_id=project.id) }}" class="label-row section-gap">
+            {{ csrf() }}
+            <label class="visually-hidden" for="new-label">New label</label>
+            <input type="text" id="new-label" name="name" placeholder="New label" maxlength="30" required>
+            <label class="visually-hidden" for="new-label-color">Colour</label>
+            <select name="color" id="new-label-color">
+              {% for color in colors %}<option value="{{ color }}">{{ color|title }}</option>{% endfor %}
+            </select>
+            <button class="button" type="submit">Add label</button>
+          </form>
+        {% endif %}
+      </div>
+    </section>
+
     <section class="setting" id="limits">
       <div class="setting-text">
         <h2>Column Limits</h2>
