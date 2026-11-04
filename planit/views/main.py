@@ -15,7 +15,8 @@ bp = Blueprint("main", __name__)
 def project_tabs(project):
     """(name, endpoint, label) of the tabs at the top of a project."""
     tabs = [("board", "tasks.board", "Board"), ("list", "tasks.task_list_view", "List"),
-            ("calendar", "tasks.project_calendar", "Calendar"), ("activity", "tasks.history", "Activity")]
+            ("calendar", "tasks.project_calendar", "Calendar"), ("dashboard", "tasks.dashboard", "Dashboard"),
+            ("activity", "tasks.history", "Activity")]
     if project.is_team:
         tabs.append(("members", "projects.members", "Members"))
     tabs.append(("settings", "projects.settings", "Settings"))

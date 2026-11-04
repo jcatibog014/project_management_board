@@ -9,7 +9,7 @@ from calendar import month_name
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
-from .. import activity, comments, db, permissions as can, planning, projects, tasks as task_list, workflow
+from .. import activity, comments, db, insights, permissions as can, planning, projects, tasks as task_list, workflow
 from ..auth import login_required, safe_next
 from ..dates import utcnow
 from ..models import STATUSES, User, WipLimit
@@ -267,6 +267,21 @@ def project_calendar(project_id):
     return render_template("calendar.html", weeks=planning.calendar(db.session(), g.user, year, month, project),
                            month_name=f"{month_name[month]} {year}", previous=previous, following=following,
                            project=project, access=access)
+
+
+# ---------- Dashboard ----------
+
+@bp.get("/projects/<int:project_id>/dashboard")
+@login_required
+def dashboard(project_id):
+    project, access = load(project_id)
+    s = db.session()
+    rows = task_list.board_rows(s, project)
+    return render_template("project/dashboard.html", project=project, access=access,
+                           summary=insights.summary(rows), statuses=insights.by_status(rows),
+                           workload=insights.workload(s, project, rows), weekly=insights.weekly(rows),
+                           upcoming=insights.upcoming(rows),
+                           workload_statuses=insights.WORKLOAD_STATUSES)
 
 
 # ---------- History and limits ----------

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% from "_task_card.html" import task_row with context %}
+{% from "project/_head.html" import project_head with context %}
+{% block title %}Dashboard - {{ project.name }} - {{ APP_NAME }}{% endblock %}
+{#
+  The charts are plain SVG. Each bar has a <title> (the browser shows it on hover)
+  and its number beside it, and every chart can open as a table.
+#}
+{% block content %}
+  {{ project_head(project, access, 'dashboard') }}
+
+  <div class="stat-tiles">
+    <div class="stat stat-good"><span class="stat-value">{{ summary.percent }}%</span><span class="stat-label">Done ({{ summary.done }} of {{ summary.total }})</span></div>
+    <div class="stat"><span class="stat-value">{{ summary.open }}</span><span class="stat-label">Open tasks</span></div>
+    <div class="stat stat-late"><span class="stat-value">{{ summary.overdue }}</span><span class="stat-label">Overdue</span></div>
+    <div class="stat"><span class="stat-value">{{ summary.finished_this_week }}</span><span class="stat-label">Finished in the last 7 days</span></div>
+  </div>
+
+  {% if not summary.total %}
+    <div class="empty-state"><h2>No Tasks Yet</h2><p>The charts fill in as soon as the board has tasks.</p></div>
+  {% else %}
+  <div class="dash-grid">
+    {# ---------- Tasks in each column ---------- #}
+    <section class="card chart-card">
+      <h2>Tasks by Status</h2>
+      <p class="lead">How many tasks sit in each column right now.</p>
+      {% set most = statuses|map(attribute=2)|max or 1 %}
+      {% set row = 36 %}
+      <svg class="chart" viewBox="0 0 600 {{ statuses|length * row }}" role="img" aria-labelledby="status-chart-title">
+        <title id="status-chart-title">Tasks by status: {% for status, name, count in statuses %}{{ name }} {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}</title>
+        {% for status, name, count in statuses %}
+          {% set y = loop.index0 * row + 6 %}
+          {% set width = 400 * count / most %}
+          <g>
+            <title>{{ name }}: {{ count }} {{ 'task' if count == 1 else 'tasks' }}</title>
+            <rect class="hit" x="0" y="{{ y - 6 }}" width="600" height="{{ row }}"></rect>
+            <text x="0" y="{{ y + 16 }}">{{ name }}</text>
+            <rect class="track" x="110" y="{{ y }}" width="400" height="24" rx="4"></rect>
+            {% if count %}<path class="fill-{{ status }}" d="{{ bar_path(110, y, width, 24) }}"></path>{% endif %}
+            <text class="value-text" x="{{ 110 + width + 8 if count else 118 }}" y="{{ y + 16 }}">{{ count }}</text>
+          </g>
+        {% endfor %}
+      </svg>
+      <details class="chart-table">
+        <summary>Show as a table</summary>
+        <table class="table"><thead><tr><th>Status</th><th>Tasks</th></tr></thead>
+          <tbody>{% for status, name, count in statuses %}<tr><td>{{ name }}</td><td>{{ count }}</td></tr>{% endfor %}</tbody></table>
+      </details>
+    </section>
+
+    {# ---------- Finished per week ---------- #}
+    <section class="card chart-card">
+      <h2>Finished per Week</h2>
+      <p class="lead">Tasks approved to Done in each of the last {{ weekly|length }} weeks.</p>
+      {% set most_week = weekly|map(attribute=1)|max or 1 %}
+      {% set peak = weekly|map(attribute=1)|max %}
+      {% set slot = 600 / weekly|length %}
+      <svg class="chart" viewBox="0 0 600 200" role="img" aria-labelledby="weekly-chart-title">
+        <title id="weekly-chart-title">Tasks finished per week: {% for monday, count in weekly %}week of {{ monday|short_date }} {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}</title>
+        <line class="gridline" x1="0" y1="160" x2="600" y2="160"></line>
+        {% for monday, count in weekly %}
+          {% set x = loop.index0 * slot %}
+          {% set height = 130 * count / most_week %}
+          <g>
+            <title>Week of {{ monday|short_date }}: {{ count }} finished</title>
+            <rect class="hit" x="{{ x }}" y="0" width="{{ slot }}" height="200"></rect>
+            {% if count %}<path class="bar-done" d="{{ bar_path(x + slot / 2 - 18, 160 - height, 36, height, end='top') }}"></path>{% endif %}
+            {# Numbers only on this week and the best week; the rest are on hover and in the table. #}
+            {% if loop.last or (count == peak and count) %}
+              <text class="value-text" x="{{ x + slot / 2 }}" y="{{ 160 - height - 8 }}" text-anchor="middle">{{ count }}</text>
+            {% endif %}
+            <text x="{{ x + slot / 2 }}" y="182" text-anchor="middle">{{ 'This week' if loop.last else monday|short_date }}</text>
+          </g>
+        {% endfor %}
+      </svg>
+      <details class="chart-table">
+        <summary>Show as a table</summary>
+        <table class="table"><thead><tr><th>Week of</th><th>Finished</th></tr></thead>
+          <tbody>{% for monday, count in weekly %}<tr><td>{{ monday|nice_date }}</td><td>{{ count }}</td></tr>{% endfor %}</tbody></table>
+      </details>
+    </section>
+
+    {# ---------- Workload ---------- #}
+    <section class="card chart-card">
+      <h2>Workload</h2>
+      <p class="lead">Open tasks each person has, by column.</p>
+      {% set most_load = workload|map(attribute=2)|max or 1 %}
+      {% set row = 36 %}
+      <svg class="chart" viewBox="0 0 600 {{ (workload|length or 1) * row }}" role="img" aria-labelledby="load-chart-title">
+        <title id="load-chart-title">Workload: {% for user, counts, total in workload %}{{ user.display_name if user else 'Nobody yet' }} {{ total }}{% if not loop.last %}, {% endif %}{% endfor %}</title>
+        {% for user, counts, total in workload %}
+          {% set y = loop.index0 * row + 6 %}
+          {% set name = user.display_name if user else 'Nobody yet' %}
+          <g>
+            <title>{{ name }}: {% for status in workload_statuses %}{{ workflow.name(status) }} {{ counts[status] }}{% if not loop.last %}, {% endif %}{% endfor %}</title>
+            <rect class="hit" x="0" y="{{ y - 6 }}" width="600" height="{{ row }}"></rect>
+            <text x="0" y="{{ y + 16 }}">{{ name|truncate(16, True, '...') }}</text>
+            <rect class="track" x="130" y="{{ y }}" width="380" height="24" rx="4"></rect>
+            {% set ns = namespace(x=130, left=total) %}
+            {% for status in workload_statuses if counts[status] %}
+              {% set width = 380 * counts[status] / most_load %}
+              {% set ns.left = ns.left - counts[status] %}
+              {# A 2px gap between pieces; only the last piece has a rounded end. #}
+              {% if ns.left %}
+                <rect class="fill-{{ status }}" x="{{ ns.x }}" y="{{ y }}" width="{{ [width - 2, 1]|max }}" height="24"></rect>
+              {% else %}
+                <path class="fill-{{ status }}" d="{{ bar_path(ns.x, y, width, 24) }}"></path>
+              {% endif %}
+              {% set ns.x = ns.x + width %}
+            {% endfor %}
+            <text class="value-text" x="{{ ns.x + 8 if total else 138 }}" y="{{ y + 16 }}">{{ total }}</text>
+          </g>
+        {% endfor %}
+      </svg>
+      <div class="legend">{% for status in workload_statuses %}<span class="status-pill status-{{ status }}">{{ workflow.name(status) }}</span>{% endfor %}</div>
+      <details class="chart-table">
+        <summary>Show as a table</summary>
+        <table class="table"><thead><tr><th>Person</th>{% for status in workload_statuses %}<th>{{ workflow.name(status) }}</th>{% endfor %}<th>Total</th></tr></thead>
+          <tbody>{% for user, counts, total in workload %}<tr><td>{{ user.display_name if user else 'Nobody yet' }}</td>{% for status in workload_statuses %}<td>{{ counts[status] }}</td>{% endfor %}<td>{{ total }}</td></tr>{% endfor %}</tbody></table>
+      </details>
+    </section>
+
+    {# ---------- Deadlines ---------- #}
+    <section class="card chart-card">
+      <h2>Next Deadlines</h2>
+      <p class="lead">Open tasks with a deadline, the most urgent first.{% if project.due_date %} The project is due {{ project.due_date|nice_date }}.{% endif %}</p>
+      {% if upcoming %}
+        <div class="task-rows">{% for task in upcoming %}{{ task_row(task, show_project=False) }}{% endfor %}</div>
+      {% else %}
+        <p class="empty-line">No open task has a deadline.</p>
+      {% endif %}
+    </section>
+  </div>
+  {% endif %}
+{% endblock %}

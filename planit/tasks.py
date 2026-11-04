@@ -38,11 +38,16 @@ def order():
     return (PRIORITY_RANK, case((Task.due_date.is_(None), 1), else_=0), Task.due_date, Task.number)
 
 
+def board_rows(s, project):
+    """Every task in the project, with what a card shows, most urgent first."""
+    return s.scalars(select(Task).where(Task.project_id == project.id).options(*card_options())
+                     .order_by(*order())).all()
+
+
 def board(s, project):
     """{status: [tasks]} for every column."""
     columns = {status: [] for status in STATUSES}
-    for task in s.scalars(select(Task).where(Task.project_id == project.id).options(*card_options())
-                          .order_by(*order())):
+    for task in board_rows(s, project):
         columns[task.status].append(task)
     # The newest finished work first: Done grows forever.
     columns[DONE].sort(key=lambda task: task.completed_at or task.updated_at, reverse=True)

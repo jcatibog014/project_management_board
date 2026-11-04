@@ -43,7 +43,7 @@
   --sidebar-active: #22396b;
 
   /* Task statuses. */
-  --backlog: #8492a6;
+  --backlog: #5f6b7f;
   --todo: #2f9bd3;
   --in_progress: #e0a100;
   --review: #8b5cf6;
@@ -93,6 +93,7 @@
     --sidebar: #070e1e;
     --sidebar-hover: #111f3d;
     --sidebar-active: #1a2d57;
+    --in_progress: #d49a00;
   }
 }
 :root[data-theme="dark"] {
@@ -120,6 +121,7 @@
   --sidebar: #070e1e;
   --sidebar-hover: #111f3d;
   --sidebar-active: #1a2d57;
+  --in_progress: #d49a00;
 }
 
 /* ---------- Base ---------- */
@@ -684,7 +686,7 @@ a.stat:hover { border-color: var(--accent); }
 .chart-card h2 { font-size: 1rem; margin-bottom: 0.25rem; }
 .chart-card .lead { color: var(--muted); font-size: 0.8125rem; margin-bottom: 0.875rem; }
 .chart { width: 100%; height: auto; overflow: visible; }
-.chart text { font-family: var(--font-text); font-size: 12px; fill: var(--muted); }
+.chart text { font-family: var(--font-text); font-size: 15px; fill: var(--muted); }
 .chart .value-text { fill: var(--text); font-weight: 600; }
 .chart .gridline { stroke: var(--border); stroke-width: 1; }
 .chart .bar-done { fill: var(--done); }
@@ -773,3 +775,9 @@ input[type="date"] { height: var(--control-height); padding-top: 0; padding-bott
 .project-card .project-card-desc + .project-card-foot, .project-card h2 + .project-card-foot { margin-top: auto; }
 .cal-deadline { border-left-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); font-weight: 600; }
 .task-row > .status-pill { width: 0.5rem; }
+.chart .hit { fill: transparent; }
+.chart g:hover .track { fill: var(--border); }
+.chart-table { margin-top: 0.75rem; font-size: 0.8125rem; }
+.chart-table summary { cursor: pointer; color: var(--muted); }
+.chart-table .table { margin-top: 0.5rem; }
+.dash-grid .card + .card { margin-top: 0; }
