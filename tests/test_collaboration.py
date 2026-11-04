@@ -6,7 +6,7 @@ import pytest
 from planit import db
 from planit.models import MANAGER, MEMBER, VIEWER, Notification
 
-from .conftest import browser, make_project, make_task, make_user, post
+from .conftest import browser, get_task, make_project, make_task, make_user, post
 
 
 @pytest.fixture
@@ -150,3 +150,70 @@ def test_mark_all_read(app, team):
     assert b"2 new things need you" in client.get("/inbox").data
     post(client, "/inbox/read")
     assert b"all caught up" in client.get("/inbox").data
+
+
+def ask_for_review(app, team):
+    """A task of Mel's, now in review: Olga and Manny each get a review note."""
+    number = make_task(app, team.project, team.owner, assignee_id=team.member)
+    for to in ("in_progress", "review"):
+        post(browser(app, team.member), f"/projects/{team.project}/tasks/{number}/move", {"to": to})
+    return number
+
+
+def note_id(app, user_id, kind):
+    with app.app_context():
+        return db.session().query(Notification).filter_by(user_id=user_id, kind=kind).one().id
+
+
+def test_the_inbox_filters_by_kind(app, team):
+    number = ask_for_review(app, team)
+    comment(app, team.member, team, number, "@manny have a look")
+    client = browser(app, team.manager)
+    mentions = client.get("/inbox?show=mentions").data
+    assert b"mentioned you" in mentions and b"asks for a review" not in mentions
+    reviews = client.get("/inbox?show=reviews").data
+    assert b"asks for a review" in reviews and b"mentioned you" not in reviews
+    assert b"Nothing here" in client.get("/inbox?show=assigned").data
+    everything = client.get("/inbox?show=nonsense").data
+    assert b"mentioned you" in everything and b"asks for a review" in everything
+
+
+def test_a_manager_approves_from_the_inbox(app, team):
+    number = ask_for_review(app, team)
+    note = note_id(app, team.manager, "review")
+    client = browser(app, team.manager)
+    assert b"Approve" in client.get("/inbox").data and b"Send back" in client.get("/inbox").data
+    response = post(client, f"/inbox/{note}/review", {"to": "done"})
+    assert response.status_code == 302 and response.location.endswith("/inbox")
+    assert get_task(app, team.project, number).status == "done"
+    page = client.get("/inbox").data
+    assert b"is Done" in page and b"Approve" not in page  # handled: no more buttons, and it is read
+    assert notes(app, team.member)[-1] == "approved"
+
+
+def test_sending_back_from_the_inbox(app, team):
+    number = ask_for_review(app, team)
+    post(browser(app, team.owner), f"/inbox/{note_id(app, team.owner, 'review')}/review", {"to": "in_progress"})
+    assert get_task(app, team.project, number).status == "in_progress"
+    assert notes(app, team.member)[-1] == "sent_back"
+
+
+def test_inbox_review_buttons_follow_the_rules(app, team):
+    number = ask_for_review(app, team)
+    note = note_id(app, team.manager, "review")
+    # Someone else's note is not yours to press.
+    assert post(browser(app, team.member), f"/inbox/{note}/review", {"to": "done"}).status_code == 404
+    assert post(browser(app, team.manager), f"/inbox/{note}/review", {"to": "backlog"}).status_code == 400
+    # Once the task left review (approved on the board), the note has no buttons.
+    post(browser(app, team.owner), f"/projects/{team.project}/tasks/{number}/move", {"to": "done"})
+    assert b"Send back" not in browser(app, team.manager).get("/inbox").data
+
+
+def test_a_manager_who_became_a_viewer_cant_approve_from_the_inbox(app, team):
+    number = ask_for_review(app, team)
+    note = note_id(app, team.manager, "review")
+    post(browser(app, team.owner), f"/projects/{team.project}/members/{team.manager}", {"role": VIEWER})
+    client = browser(app, team.manager)
+    assert b"Approve" not in client.get("/inbox").data
+    post(client, f"/inbox/{note}/review", {"to": "done"})
+    assert get_task(app, team.project, number).status == "review"

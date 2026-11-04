@@ -9,13 +9,13 @@
     </div>
   </div>
   {% if review %}
-    <section class="section-gap" id="review">
+    <section class="task-group" id="review">
       <h2 class="group-title">Waiting for Your Review <span class="count">{{ review|length }}</span></h2>
       <div class="task-rows">{% for task in review %}{{ task_row(task) }}{% endfor %}</div>
     </section>
   {% endif %}
   {% for name, rows in groups %}
-    <section id="group-{{ name|lower|replace(' ', '-') }}">
+    <section class="task-group" id="group-{{ name|lower|replace(' ', '-') }}">
       <h2 class="group-title{% if name == 'Overdue' %} group-late{% endif %}">{{ name }} <span class="count">{{ rows|length }}</span></h2>
       <div class="task-rows">{% for task in rows %}{{ task_row(task) }}{% endfor %}</div>
     </section>

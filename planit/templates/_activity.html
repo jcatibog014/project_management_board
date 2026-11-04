@@ -3,7 +3,7 @@
 {% macro activity_line(entry, show_task=True, show_project=False) %}
   {% set who = entry.actor.display_name if entry.actor else 'Someone who left' %}
   {% if entry.task %}
-    {% set what %}<a href="{{ url_for('tasks.show', project_id=entry.project_id, number=entry.task.number) }}">{{ entry.task.key }}</a> {{ entry.task.title }}{% endset %}
+    {% set what %}<a href="{{ url_for('tasks.show', project_id=entry.project_id, number=entry.task.number) }}" title="{{ entry.task.title }}">{{ entry.task.key }}</a> {{ entry.task.title|truncate(36 if show_project else 120, False, '...', 0) }}{% endset %}
   {% else %}
     {% set what %}<strong>{{ entry.note }}</strong>{% endset %}
   {% endif %}

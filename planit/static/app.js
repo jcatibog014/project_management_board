@@ -173,7 +173,43 @@ function setUpBoard() {
   });
 }
 
+// Keyboard shortcuts: "/" or Ctrl+K (Cmd+K on a Mac) opens Search, "c" makes a new task.
+// Letters do nothing while you type in a box. The list is in Settings.
+function setUpShortcuts() {
+  document.querySelectorAll("[data-js-only]").forEach((part) => (part.hidden = false));
+  const openSearch = () => {
+    const box = document.querySelector("[data-search-box]");
+    const link = document.querySelector("[data-search-link]");
+    if (box) {
+      box.focus();
+      box.select();
+    } else if (link) {
+      window.location.href = link.href;
+    }
+  };
+  document.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      openSearch();
+      return;
+    }
+    const typing = event.target.closest("input, textarea, select, [contenteditable]");
+    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === "/") {
+      event.preventDefault();
+      openSearch();
+    } else if (event.key === "c") {
+      const link = document.querySelector('[data-shortcut="c"]');
+      if (link) {
+        event.preventDefault();
+        link.click();
+      }
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  setUpShortcuts();
   setUpProjectKind();
   setUpBoard();
   setUpTheme();

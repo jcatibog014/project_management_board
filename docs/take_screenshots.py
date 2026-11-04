@@ -42,6 +42,8 @@ PAGES = [
     ("project-settings.png", "{web}/settings", "light", DESKTOP, None),
     ("my-tasks.png", "/my-tasks", "light", DESKTOP, None),
     ("calendar.png", "/calendar", "light", DESKTOP, None),
+    ("calendar-week.png", "/calendar?week=", "light", DESKTOP, None),
+    ("search.png", "/search?q=logo", "light", DESKTOP, None),
     ("inbox.png", "/inbox", "light", DESKTOP, None),
     ("activity.png", "{web}/activity", "light", DESKTOP, None),
     ("teams.png", "/teams", "light", DESKTOP, None),

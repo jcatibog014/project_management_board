@@ -5,8 +5,6 @@ Moves come from the board's drag and drop (fetch, answered with JSON) or from
 the Move buttons (a plain form, answered with a redirect). Both go through
 workflow.move(), so the rules are the same.
 """
-from calendar import month_name
-
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
 from .. import activity, comments, db, insights, permissions as can, planning, projects, tasks as task_list, workflow
@@ -41,8 +39,15 @@ def go_back(project, task=None):
 def board(project_id):
     project, access = load(project_id)
     s = db.session()
-    return render_template("project/board.html", project=project, access=access,
-                           columns=task_list.board(s, project), limits=workflow.limits(s, project))
+    people, labels = projects.assignable(s, project), task_list.project_labels(s, project)
+    filters = planning.board_filters(request.args, people, labels)
+    columns = task_list.board(s, project)
+    # Column counts and limits stay about the whole column; the filters only hide cards.
+    shown = {status: [task for task in cards if planning.matches(task, filters, g.user)]
+             for status, cards in columns.items()}
+    return render_template("project/board.html", project=project, access=access, columns=columns, shown=shown,
+                           limits=workflow.limits(s, project), filters=filters, people=people, labels=labels,
+                           priorities=task_list.PRIORITY_NAMES)
 
 
 # ---------- Making a task ----------
@@ -262,11 +267,8 @@ def task_list_view(project_id):
 @login_required
 def project_calendar(project_id):
     project, access = load(project_id)
-    year, month = planning.month_of(request.args.get("month"))
-    previous, following = planning.next_and_previous(year, month)
-    return render_template("calendar.html", weeks=planning.calendar(db.session(), g.user, year, month, project),
-                           month_name=f"{month_name[month]} {year}", previous=previous, following=following,
-                           project=project, access=access)
+    return render_template("calendar.html", project=project, access=access,
+                           **planning.calendar_page(db.session(), g.user, request.args, project))
 
 
 # ---------- Dashboard ----------

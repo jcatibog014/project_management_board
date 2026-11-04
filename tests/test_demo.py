@@ -85,7 +85,8 @@ EMPTY_PAGE_SIGNS = [b"empty-state", b"No comments yet", b"No Teams share", b"Not
 
 def demo_pages(app, user):
     ids = demo_projects(app, user)
-    pages = ["/", "/my-tasks", "/calendar", "/inbox", "/projects", "/teams", "/settings"]
+    pages = ["/", "/my-tasks", "/calendar", "/calendar?week=", "/inbox", "/inbox?show=reviews", "/projects", "/teams",
+             "/settings", "/search", "/search?q=logo"]
     for project_id in ids.values():
         pages += [f"/projects/{project_id}{tab}" for tab in ("", "/list", "/dashboard", "/activity", "/settings")]
     with app.app_context():

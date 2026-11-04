@@ -116,3 +116,46 @@ def test_the_list_filters_by_label(app, team):
     post(client, f"/projects/{team.project}/tasks/new", {"title": "Plain"})
     page = client.get(f"/projects/{team.project}/list?label={bug}").data
     assert b"Bad bug" in page and b"Plain" not in page
+
+
+# ---------- The week view ----------
+
+def test_week_of_starts_on_monday():
+    assert planning.week_of("2026-11-04").isoformat() == "2026-11-02"
+    assert planning.week_of("2026-11-02").isoformat() == "2026-11-02"
+    assert planning.week_of("nonsense").weekday() == 0
+
+
+def test_the_week_view_shows_every_task_of_the_week(app, team):
+    monday = planning.week_of(today().isoformat())
+    for n in range(5):  # more than the month's three a day
+        make_task(app, team.project, team.owner, f"Task {n}", assignee_id=team.member, due_date=monday)
+    make_task(app, team.project, team.owner, "Beyond the week", assignee_id=team.member, due_date=monday + 7 * DAY)
+    client = browser(app, team.member)
+    page = client.get(f"/calendar?week={monday.isoformat()}").data
+    assert all(f"Task {n}".encode() in page for n in range(5)) and b"Beyond the week" not in page
+    assert b"calendar-week" in page and b"+2 more" not in page
+    assert b"+2 more" in client.get(f"/calendar?month={monday.year}-{monday.month:02d}").data
+    project_page = client.get(f"/projects/{team.project}/calendar?week={monday.isoformat()}").data
+    assert b"Task 4" in project_page
+
+
+def test_the_week_view_buttons(app, team):
+    page = browser(app, team.member).get("/calendar?week=2026-11-04").data.decode()
+    assert "2 - 8 November 2026" in page
+    assert "?week=2026-10-26" in page and "?week=2026-11-09" in page and "?month=2026-11" in page
+
+
+# ---------- Board filters ----------
+
+def test_the_board_filters_hide_cards_but_keep_counts(app, team):
+    make_task(app, team.project, team.owner, "Urgent one", status="backlog", priority="urgent")
+    make_task(app, team.project, team.owner, "Calm one", priority="low", assignee_id=team.member)
+    client = browser(app, team.member)
+    page = client.get(f"/projects/{team.project}?priority=urgent").data.decode()
+    assert "Urgent one" in page and "Calm one" not in page
+    assert "Showing 1 of 2 tasks" in page
+    page = client.get(f"/projects/{team.project}?who=me").data.decode()
+    assert "Calm one" in page and "Urgent one" not in page and "No tasks match" in page
+    page = client.get(f"/projects/{team.project}?who=12345&priority=nonsense").data.decode()
+    assert "Urgent one" in page and "Calm one" in page and "Showing" not in page

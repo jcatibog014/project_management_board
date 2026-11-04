@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from .dates import utcnow
-from .models import DONE, REVIEW, Activity, Project
+from .models import DONE, IN_PROGRESS, REVIEW, Activity, Project
 
 # The verbs, and the moves that have their own.
 CREATED, MOVED, APPROVED, SENT_BACK, REOPENED = "created", "moved", "approved", "sent_back", "reopened"

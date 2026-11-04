@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, avatar %}
+{% from "_icons.html" import icon %}
 {% block title %}Teams - {{ APP_NAME }}{% endblock %}
 {% block content %}
   <div class="page-head">
@@ -7,6 +8,17 @@
       <h1>Teams</h1>
       <p class="lead">A Team is a saved group of people. Add it to a project and everyone in it can join in.</p>
     </div>
+    {# Like New project: the page's main action, top right. <details> opens without JavaScript. #}
+    <details class="head-actions new-panel" data-popover{% if errors.name %} open{% endif %}>
+      <summary class="button">{{ icon('plus') }} New Team</summary>
+      <form method="post" class="new-panel-form stack">
+        {{ csrf() }}
+        <label class="field{% if errors.name %} has-error{% endif %}"><span class="field-label">Team name</span>
+          <input type="text" name="name" required maxlength="60" placeholder="e.g. Design Team"></label>
+        {% if errors.name %}<p class="field-error">{{ errors.name }}</p>{% endif %}
+        <div class="form-actions"><button class="button" type="submit">Make Team</button></div>
+      </form>
+    </details>
   </div>
   {% if teams %}
     <ul class="people-list">
@@ -22,13 +34,7 @@
   {% else %}
     <div class="empty-state">
       <h2>No Teams Yet</h2>
-      <p>Make one for a group you often work with, like "Design Team".</p>
+      <p>Make one for a group you often work with, like "Design Team". Press New Team at the top.</p>
     </div>
   {% endif %}
-  <form method="post" class="filters section">
-    {{ csrf() }}
-    <label>New Team name<input type="text" name="name" required maxlength="60" placeholder="e.g. Design Team"></label>
-    {% if errors.name %}<p class="field-error">{{ errors.name }}</p>{% endif %}
-    <div class="form-actions"><button class="button" type="submit">Make Team</button></div>
-  </form>
 {% endblock %}

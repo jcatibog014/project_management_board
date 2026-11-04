@@ -97,17 +97,26 @@ The rules:
 
 - **Home**: what is late, what is due today and this week, and what is new.
 - **My Tasks**: all your tasks from every project, sorted by deadline.
-- **Calendar**: your deadlines on a month page. Every project has its own calendar too.
+- **Calendar**: your deadlines on a month page, or one week at a time. Every project has its own calendar too.
 - **List**: a project's tasks with filters (person, status, label, priority, deadline).
+- **Board filters**: show only one person's cards, one priority or one label.
 - **Inbox**: when someone writes `@you`, gives you a task, or asks for your review.
+  Show only Mentions, Assigned or Reviews. A Manager can **Approve** or **Send back** right in the Inbox.
+- **Search**: find a task or a project by its name, or a task by its key (`WEB-3`).
+
+Keyboard shortcuts: <kbd>/</kbd> or <kbd>Ctrl</kbd> <kbd>K</kbd> opens Search, and <kbd>C</kbd> makes a new task on a project's Board or List.
 
 | Home | My Tasks |
 |---|---|
 | ![Home](docs/screenshots/home.png) | ![My Tasks](docs/screenshots/my-tasks.png) |
 
-| Calendar | List with filters |
+| Calendar | Calendar, one week |
 |---|---|
-| ![Calendar](docs/screenshots/calendar.png) | ![List](docs/screenshots/list.png) |
+| ![Calendar](docs/screenshots/calendar.png) | ![The calendar's week view](docs/screenshots/calendar-week.png) |
+
+| List with filters | Search |
+|---|---|
+| ![List](docs/screenshots/list.png) | ![Search](docs/screenshots/search.png) |
 
 | Inbox | Activity |
 |---|---|
@@ -151,7 +160,7 @@ up. Keep it: you need it if you forget your password.
 | **HTML, CSS, JavaScript** | The languages of web pages | The look, and drag and drop |
 | **SVG** | Pictures made from code | The charts and the icons |
 | **markdown-it-py + nh3** | Markdown and safe HTML | Task descriptions that can't run scripts |
-| **pytest** | A testing tool | Over 240 tests, for example for every role and every move |
+| **pytest** | A testing tool | Over 250 tests, for example for every role and every move |
 | **Playwright** | A browser robot | The screenshots and the app icon |
 | **Render** | A hosting platform | Running the live site |
 | **GitHub** | Code hosting | Keeping the code and pull requests |

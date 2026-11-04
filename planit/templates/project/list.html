@@ -7,7 +7,7 @@
 {% block content %}
   {% call project_head(project, access, 'list') %}
     {% if can.can_create_task(access) %}
-      <a class="button" href="{{ url_for('tasks.new', project_id=project.id) }}">{{ icon('plus') }} New task</a>
+      <a class="button" href="{{ url_for('tasks.new', project_id=project.id) }}" data-shortcut="c" aria-keyshortcuts="c">{{ icon('plus') }} New task</a>
     {% endif %}
   {% endcall %}
   <form method="get" class="filters" aria-label="Filter tasks">

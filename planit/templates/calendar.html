@@ -15,28 +15,40 @@
     </div>
     {% set here = url_for('main.calendar') %}
   {% endif %}
-  <div class="section-head">
+  {% set week = view == 'week' %}
+  <div class="section-head calendar-bar">
     <div class="month-nav">
-      <a class="icon-button" href="{{ here }}?month={{ previous }}" aria-label="Previous month">{{ icon('chevron-left') }}</a>
-      <h2>{{ month_name }}</h2>
-      <a class="icon-button" href="{{ here }}?month={{ following }}" aria-label="Next month">{{ icon('chevron-right') }}</a>
+      <a class="icon-button" href="{{ here }}?{{ previous|urlencode }}" aria-label="Previous {{ view }}">{{ icon('chevron-left') }}</a>
+      <h2>{{ title }}</h2>
+      <a class="icon-button" href="{{ here }}?{{ following|urlencode }}" aria-label="Next {{ view }}">{{ icon('chevron-right') }}</a>
     </div>
-    <a class="button button-quiet button-small" href="{{ here }}">Today</a>
+    <div class="head-actions">
+      <a class="button button-quiet button-small" href="{{ here }}{% if today_link %}?{{ today_link|urlencode }}{% endif %}">Today</a>
+      <nav class="segmented" aria-label="Calendar view">
+        <a href="{% if week %}{{ here }}?{{ month_link|urlencode }}{% else %}{{ request.full_path }}{% endif %}"{% if not week %} aria-current="page"{% endif %}>Month</a>
+        <a href="{% if week %}{{ request.full_path }}{% else %}{{ here }}?{{ week_link|urlencode }}{% endif %}"{% if week %} aria-current="page"{% endif %}>Week</a>
+      </nav>
+    </div>
   </div>
-  <div class="calendar" role="grid" aria-label="{{ month_name }}">
+  <div class="calendar{% if week %} calendar-week{% endif %}" role="grid" aria-label="{{ title }}">
     {% for name in ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun') %}<div class="calendar-head" role="columnheader">{{ name }}</div>{% endfor %}
-    {% for week in weeks %}
-      {% for cell in week %}
+    {% for row in weeks %}
+      {% for cell in row %}
+        {# The month shows three tasks a day; the week has room for all of them. #}
+        {% set shown = cell.tasks if week else cell.tasks[:3] %}
         <div class="calendar-day{% if not cell.in_month %} is-other{% endif %}{% if cell.day == today() %} is-today{% endif %}" role="gridcell">
           <span class="day-number">{{ cell.day.day }}</span>
+          {# On a phone the week is a list of days, so each day says its own name. #}
+          {% if week %}<span class="day-long">{{ cell.day.strftime('%A') }}, {{ cell.day|short_date }}</span>{% endif %}
           {% for due in cell.deadlines %}
             <a class="cal-task cal-deadline color-{{ due.color }}" href="{{ url_for('tasks.board', project_id=due.id) }}" title="{{ due.name }} is due">{{ icon('flag', 11) }} {{ due.name }}</a>
           {% endfor %}
-          {% for task in cell.tasks[:3] %}
+          {% for task in shown %}
             <a class="cal-task status-{{ task.status }}{% if task.is_done %} is-done{% elif cell.day < today() %} is-late{% endif %}"
-               href="{{ url_for('tasks.show', project_id=task.project_id, number=task.number) }}" title="{{ task.key }} {{ task.title }}">{{ task.title }}</a>
+               href="{{ url_for('tasks.show', project_id=task.project_id, number=task.number) }}" title="{{ task.key }} {{ task.title }}">
+              {%- if week %}<span class="task-key">{{ task.key }}</span>{% endif %}{{ task.title }}</a>
           {% endfor %}
-          {% if cell.tasks|length > 3 %}<span class="cal-more">+{{ cell.tasks|length - 3 }} more</span>{% endif %}
+          {% if cell.tasks|length > shown|length %}<span class="cal-more">+{{ cell.tasks|length - shown|length }} more</span>{% endif %}
         </div>
       {% endfor %}
     {% endfor %}

@@ -79,16 +79,23 @@ def month_of(text):
         return now.year, now.month
 
 
+def week_of(text):
+    """'2026-11-04' -> the Monday of that week; anything else -> this week's Monday."""
+    try:
+        day = date.fromisoformat(text or "")
+    except ValueError:
+        day = today()
+    return day - timedelta(days=day.weekday())
+
+
 def month_grid(year, month):
     """The weeks of the month, Monday first, including the days around it."""
     return month_calendar.Calendar(firstweekday=0).monthdatescalendar(year, month)
 
 
-def calendar(s, user, year, month, project=None):
-    """[[Day]] for the month. Without a project: the user's own tasks and the
-    deadlines of their projects. With one: every task in that project."""
-    weeks = month_grid(year, month)
-    first, last = weeks[0][0], weeks[-1][-1]
+def days_between(s, user, first, last, project=None, month=None):
+    """{date: Day} from first to last. Without a project: the user's own tasks and
+    the deadlines of their projects. With one: every task in that project."""
     query = (select(Task).join(Project, Project.id == Task.project_id)
              .where(Task.due_date.between(first, last)).options(*task_list.card_options())
              .order_by(*task_list.order()))
@@ -99,11 +106,19 @@ def calendar(s, user, year, month, project=None):
         query = query.where(Task.assignee_id == user.id, _open_projects(user))
         due_projects = s.scalars(select(Project).where(_open_projects(user),
                                                        Project.due_date.between(first, last))).all()
-    days = {d: Day(d, d.month == month) for week in weeks for d in week}
+    every_day = (first + timedelta(days=n) for n in range((last - first).days + 1))
+    days = {d: Day(d, month is None or d.month == month) for d in every_day}
     for task in s.scalars(query):
         days[task.due_date].tasks.append(task)
     for due in due_projects:
         days[due.due_date].deadlines.append(due)
+    return days
+
+
+def calendar(s, user, year, month, project=None):
+    """[[Day]] for the month, a list of weeks."""
+    weeks = month_grid(year, month)
+    days = days_between(s, user, weeks[0][0], weeks[-1][-1], project, month)
     return [[days[d] for d in week] for week in weeks]
 
 
@@ -111,6 +126,36 @@ def next_and_previous(year, month):
     previous = (year - 1, 12) if month == 1 else (year, month - 1)
     following = (year + 1, 1) if month == 12 else (year, month + 1)
     return f"{previous[0]}-{previous[1]:02d}", f"{following[0]}-{following[1]:02d}"
+
+
+def week_title(monday):
+    sunday = monday + timedelta(days=WEEK - 1)
+    if monday.month == sunday.month:
+        return f"{monday.day} - {sunday.day} {month_calendar.month_name[sunday.month]} {sunday.year}"
+    return (f"{monday.day} {month_calendar.month_abbr[monday.month]} - "
+            f"{sunday.day} {month_calendar.month_abbr[sunday.month]} {sunday.year}")
+
+
+def calendar_page(s, user, args, project=None):
+    """What calendar.html needs, for a month (?month=2026-11) or a week (?week=2026-11-02).
+    previous, following, month_link and week_link are the query strings of the buttons."""
+    if "week" in args:
+        monday = week_of(args.get("week"))
+        days = days_between(s, user, monday, monday + timedelta(days=WEEK - 1), project)
+        return {"view": "week", "weeks": [list(days.values())], "title": week_title(monday),
+                "previous": {"week": (monday - timedelta(days=WEEK)).isoformat()},
+                "following": {"week": (monday + timedelta(days=WEEK)).isoformat()},
+                "today_link": {"week": week_of(None).isoformat()},
+                "month_link": {"month": f"{monday.year}-{monday.month:02d}"}, "week_link": None}
+    year, month = month_of(args.get("month"))
+    previous, following = next_and_previous(year, month)
+    now = today()
+    # Week view opens on this week when this month is showing, otherwise on the month's first week.
+    start = now if (now.year, now.month) == (year, month) else date(year, month, 1)
+    return {"view": "month", "weeks": calendar(s, user, year, month, project),
+            "title": f"{month_calendar.month_name[month]} {year}",
+            "previous": {"month": previous}, "following": {"month": following}, "today_link": {},
+            "month_link": None, "week_link": {"week": week_of(start.isoformat()).isoformat()}}
 
 
 # ---------- A project's list, with filters ----------
@@ -134,6 +179,29 @@ def clean_filters(args, people, labels):
     if args.get("due") in DUE_FILTERS:
         filters["due"] = args["due"]
     return filters
+
+
+BOARD_FILTERS = ("who", "label", "priority")
+
+
+def board_filters(args, people, labels):
+    """The board's filters: who, label and priority (status is the columns already)."""
+    filters = clean_filters(args, people, labels)
+    return {name: value for name, value in filters.items() if name in BOARD_FILTERS}
+
+
+def matches(task, filters, user):
+    """Does this task pass the board's filters? (The same rules as filtered(), in Python.)"""
+    who = filters.get("who")
+    if who == "me" and task.assignee_id != user.id:
+        return False
+    if who == "nobody" and task.assignee_id is not None:
+        return False
+    if who and who.isdigit() and task.assignee_id != int(who):
+        return False
+    if "label" in filters and int(filters["label"]) not in {label.id for label in task.labels}:
+        return False
+    return filters.get("priority") in (None, task.priority)
 
 
 def filtered(s, project, user, filters):

@@ -13,7 +13,7 @@
 {# Low and Medium are the usual, so cards only flag High and Urgent. #}
 {% macro priority_badge(task, always=False) %}
   {% if always or task.priority in ('high', 'urgent') %}
-    <span class="priority priority-{{ task.priority }}" title="{{ task.priority|title }} priority">{{ icon('flag', 13) }} {{ task.priority|title }}</span>
+    <span class="priority priority-{{ task.priority }}" title="{{ task.priority|title }} priority">{{ icon('priority-' ~ task.priority, 14) }} {{ task.priority|title }}</span>
   {% endif %}
 {% endmacro %}
 
@@ -74,7 +74,7 @@
     <a class="task-row-title" href="{{ url_for('tasks.show', project_id=task.project_id, number=task.number) }}">{{ task.title }}</a>
     <div class="task-row-sub">
       <span class="task-key">{{ task.key }}</span>
-      {% if show_project %}<span><span class="dot color-{{ task.project.color }}" aria-hidden="true"></span> {{ task.project.name }}</span>{% endif %}
+      {% if show_project %}<span class="row-project"><span class="dot color-{{ task.project.color }}" aria-hidden="true"></span> {{ task.project.name }}</span>{% endif %}
       {% if not show_project %}<span>{{ workflow.name(task.status) }}</span>{% endif %}
       {{ label_chips(task) }}
     </div>

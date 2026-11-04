@@ -12,13 +12,15 @@
   <div class="sidebar-menu" id="side-nav">
     <nav aria-label="Main">
       <ul class="side-links">
+        <li><a href="{{ url_for('main.search') }}" data-search-link{% if page == 'main.search' %} aria-current="page"{% endif %}>{{ icon('search') }} Search
+          <kbd class="side-key" title="Press / or Ctrl K">/</kbd></a></li>
         <li><a href="{{ url_for('main.home') }}"{% if page == 'main.home' %} aria-current="page"{% endif %}>{{ icon('home') }} Home</a></li>
         <li><a href="{{ url_for('main.my_tasks') }}"{% if page == 'main.my_tasks' %} aria-current="page"{% endif %}>{{ icon('tasks') }} My Tasks</a></li>
         <li><a href="{{ url_for('main.calendar') }}"{% if page == 'main.calendar' %} aria-current="page"{% endif %}>{{ icon('calendar') }} Calendar</a></li>
         {% set waiting = unread() %}
         <li><a href="{{ url_for('main.inbox') }}"{% if page == 'main.inbox' %} aria-current="page"{% endif %}>{{ icon('inbox') }} Inbox
           {% if waiting %}<span class="count" title="{{ waiting }} unread">{{ waiting }}<span class="visually-hidden"> unread</span></span>{% endif %}</a></li>
-        <li><a href="{{ url_for('projects.index') }}"{% if page in ('projects.index', 'projects.new') %} aria-current="page"{% endif %}>{{ icon('projects') }} Projects</a></li>
+        <li><a href="{{ url_for('projects.index') }}"{% if page in ('projects.index', 'projects.new') %} aria-current="page"{% elif open_project %} class="is-section"{% endif %}>{{ icon('projects') }} Projects</a></li>
         <li><a href="{{ url_for('teams.index') }}"{% if page and page.startswith('teams.') %} aria-current="page"{% endif %}>{{ icon('teams') }} Teams</a></li>
       </ul>
       {% set mine = sidebar_projects() %}

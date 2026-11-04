@@ -18,6 +18,19 @@
       </fieldset>
     </section>
 
+    {# Shortcuts need JavaScript too. app.js shows every [data-js-only]. #}
+    <section class="setting" data-js-only hidden>
+      <div class="setting-text">
+        <h2>Keyboard Shortcuts</h2>
+        <p>They work anywhere except while you type in a box.</p>
+      </div>
+      <dl class="shortcuts">
+        <div><dt><kbd>/</kbd> or <kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks and projects</dd></div>
+        <div><dt><kbd>C</kbd></dt><dd>New task, on a project's Board or List</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Close a menu</dd></div>
+      </dl>
+    </section>
+
     {% if g.user.is_demo %}
       {% from "_view_as.html" import view_as_form with context %}
       <section class="setting">

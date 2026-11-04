@@ -47,8 +47,20 @@ def unread_count(s, user):
                     .where(Notification.user_id == user.id, Notification.read_at.is_(None)))
 
 
-def inbox(s, user, limit=60):
-    return s.scalars(select(Notification).where(Notification.user_id == user.id)
+# The Inbox's filter buttons: {name: the kinds it shows}.
+FILTERS = {
+    "mentions": ("mentioned",),
+    "assigned": ("assigned",),
+    "reviews": ("review", "approved", "sent_back", "reopened"),
+}
+
+
+def inbox(s, user, show=None, limit=60):
+    """The newest notes, unread first. show is a FILTERS name, or None for all."""
+    query = select(Notification).where(Notification.user_id == user.id)
+    if show in FILTERS:
+        query = query.where(Notification.kind.in_(FILTERS[show]))
+    return s.scalars(query
                      .options(selectinload(Notification.actor), selectinload(Notification.project),
                               selectinload(Notification.comment),
                               selectinload(Notification.task).selectinload(Task.project))
