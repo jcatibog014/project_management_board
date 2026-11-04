@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/icon-32.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
-  <meta name="theme-color" content="#0f1e3d">
+  <meta name="theme-color" content="#172a4f">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   {# Before the page draws, so a saved dark theme never flashes white. #}
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
@@ -25,8 +25,10 @@
     <main id="main" class="page {% block page_class %}{% endblock %}">
       {% block notes %}
       {% if g.user and g.user.is_demo %}
-        <p class="demo-note"><strong>Demo</strong> This is your own sample company. It is deleted after 24 hours.
-          <a href="{{ url_for('auth.signup') }}">Sign up to keep your work</a></p>
+        <div class="demo-bar">
+          <p><strong>Demo</strong> Your own sample company. It is deleted after 24 hours.</p>
+          <a class="button button-tiny" href="{{ url_for('auth.signup') }}">Sign up to keep your work</a>
+        </div>
       {% endif %}
       {% with messages = get_flashed_messages() %}
         {% if messages %}

@@ -4,12 +4,40 @@
 {% from "_task_card.html" import task_card with context %}
 {% from "project/_head.html" import project_head with context %}
 {% block title %}{{ project.name }} - {{ APP_NAME }}{% endblock %}
+{% macro choice(name, value, text) %}<option value="{{ value }}"{% if filters.get(name)|string == value|string %} selected{% endif %}>{{ text }}</option>{% endmacro %}
 {% block content %}
   {% call project_head(project, access, 'board') %}
     {% if can.can_create_task(access) %}
-      <a class="button" href="{{ url_for('tasks.new', project_id=project.id) }}">{{ icon('plus') }} New task</a>
+      <a class="button" href="{{ url_for('tasks.new', project_id=project.id) }}" data-shortcut="c" aria-keyshortcuts="c">{{ icon('plus') }} New task</a>
     {% endif %}
   {% endcall %}
+
+  {% set total = columns.values()|map('length')|sum %}
+  {% set showing = shown.values()|map('length')|sum %}
+  <form method="get" class="board-filters" aria-label="Filter the board">
+    <label><span>Person</span>
+      <select name="who" data-auto-submit>
+        {{ choice('who', '', 'Anyone') }}{{ choice('who', 'me', 'Me') }}{{ choice('who', 'nobody', 'Nobody yet') }}
+        {% for user in people if user.id != g.user.id %}{{ choice('who', user.id, user.display_name) }}{% endfor %}
+      </select></label>
+    <label><span>Priority</span>
+      <select name="priority" data-auto-submit>
+        {{ choice('priority', '', 'Any') }}
+        {% for value, text in priorities.items() %}{{ choice('priority', value, text) }}{% endfor %}
+      </select></label>
+    {% if labels %}
+      <label><span>Label</span>
+        <select name="label" data-auto-submit>
+          {{ choice('label', '', 'Any') }}
+          {% for label in labels %}{{ choice('label', label.id, label.name) }}{% endfor %}
+        </select></label>
+    {% endif %}
+    <button class="button button-quiet button-small" type="submit" data-auto-submit-button>Filter</button>
+    {% if filters %}
+      <p class="board-filter-note">Showing {{ showing }} of {{ total }} tasks.
+        <a href="{{ url_for('tasks.board', project_id=project.id) }}">Clear filters</a></p>
+    {% endif %}
+  </form>
 
   <div class="board" data-board>
     {% for status in workflow.STATUSES %}
@@ -23,10 +51,11 @@
             {{ cards|length }}{% if limit %} / {{ limit }}{% endif %}</span>
         </div>
         <div class="column-list" data-column-list>
-          {% for task in cards %}
+          {% for task in shown[status] %}
             {{ task_card(task, access, workflow.allowed_moves(access, task)) }}
           {% else %}
-            <p class="column-empty">{% if status == 'done' %}Approved tasks land here{% elif status == 'review' %}Nothing waiting for review{% else %}No tasks{% endif %}</p>
+            <p class="column-empty">{{ icon('empty', 22) }}
+              {% if cards %}No tasks match{% elif status == 'done' %}Approved tasks land here{% elif status == 'review' %}Nothing waiting for review{% else %}No tasks{% endif %}</p>
           {% endfor %}
         </div>
         {% if status in ('backlog', 'todo') and can.can_create_task(access) %}

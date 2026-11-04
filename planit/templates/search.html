@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_task_card.html" import task_row with context %}
+{% block title %}{% if text %}{{ text }} - {% endif %}Search - {{ APP_NAME }}{% endblock %}
+{% macro project_line(project) %}
+  <li class="person-row search-project">
+    <span class="dot color-{{ project.color }}" aria-hidden="true"></span>
+    <span class="person-name"><a href="{{ url_for('tasks.board', project_id=project.id) }}"><strong>{{ project.name }}</strong></a>
+      <small>{{ project.key }} &middot; {{ 'Team' if project.is_team else 'Personal' }}{% if project.is_archived %} &middot; archived{% endif %}</small></span>
+  </li>
+{% endmacro %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1>Search</h1>
+      <p class="lead">Tasks and projects you can open. Type a name, or a task key like WEB-3.</p>
+    </div>
+  </div>
+  <form method="get" class="search-box" role="search">
+    <label class="visually-hidden" for="search-text">Search</label>
+    {{ icon('search') }}
+    <input type="search" id="search-text" name="q" value="{{ text }}" placeholder="Search tasks and projects" maxlength="100"
+           autocomplete="off" data-search-box{% if not text %} autofocus{% endif %}>
+    <button class="button" type="submit">Search</button>
+  </form>
+
+  {% if text %}
+    {% if found_projects %}
+      <section class="section-gap">
+        <h2 class="group-title">Projects <span class="count">{{ found_projects|length }}</span></h2>
+        <ul class="people-list">
+          {% for project in found_projects %}{{ project_line(project) }}{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+    {% if found_tasks %}
+      <section class="section-gap">
+        <h2 class="group-title">Tasks <span class="count">{{ found_tasks|length }}</span></h2>
+        <div class="task-rows">{% for task in found_tasks %}{{ task_row(task) }}{% endfor %}</div>
+      </section>
+    {% endif %}
+    {% if not found_projects and not found_tasks %}
+      <div class="empty-state">
+        <h2>Nothing Found</h2>
+        <p>No task or project you can open matches "{{ text }}".</p>
+      </div>
+    {% endif %}
+  {% else %}
+    <section class="section-gap">
+      <h2 class="group-title">Your Projects</h2>
+      <ul class="people-list">
+        {% for project in recent %}
+          {{ project_line(project) }}
+        {% else %}
+          <li class="empty-line">Your projects show up here.</li>
+        {% endfor %}
+      </ul>
+    </section>
+    <p class="muted small section">Tip: press <kbd>/</kbd> or <kbd>Ctrl</kbd> <kbd>K</kbd> on any page to come here.</p>
+  {% endif %}
+{% endblock %}

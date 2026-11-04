@@ -36,6 +36,13 @@
   {% elif name == 'person' %}<circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path>
   {% elif name == 'lock' %}<rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
   {% elif name == 'chart' %}<path d="M4 20V4M4 20h16"></path><rect x="7" y="12" width="3" height="5"></rect><rect x="12" y="8" width="3" height="9"></rect><rect x="17" y="5" width="3" height="12"></rect>
+  {% elif name == 'search' %}<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path>
+  {% elif name == 'empty' %}<path d="M3 13l3-7h12l3 7"></path><path d="M3 13v6h18v-6"></path><path d="M3 13h5l1 2h6l1-2h5" stroke-dasharray="2 2"></path>
+  {# Priorities: two arrows up for Urgent, one for High, a line for Medium, down for Low. #}
+  {% elif name == 'priority-urgent' %}<path d="M6 13l6-6 6 6"></path><path d="M6 19l6-6 6 6"></path>
+  {% elif name == 'priority-high' %}<path d="M6 15l6-6 6 6"></path>
+  {% elif name == 'priority-medium' %}<path d="M6 10h12M6 14h12"></path>
+  {% elif name == 'priority-low' %}<path d="M6 9l6 6 6-6"></path>
   {% elif name == 'list' %}<path d="M8 6h13M8 12h13M8 18h13"></path><circle cx="4" cy="6" r="1" fill="currentColor"></circle><circle cx="4" cy="12" r="1" fill="currentColor"></circle><circle cx="4" cy="18" r="1" fill="currentColor"></circle>
   {% endif %}
   </svg>

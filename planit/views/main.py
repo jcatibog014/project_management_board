@@ -1,13 +1,11 @@
-"""The pages that gather work from every project: Home, My Tasks, Calendar and the Inbox. Also what
-every page needs: the sidebar's project list, the unread count and the project tabs."""
-from calendar import month_name
+"""The pages that gather work from every project: Home, My Tasks, Calendar, Search and the Inbox.
+Also what every page needs: the sidebar's project list, the unread count and the project tabs."""
+from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
-from flask import Blueprint, abort, g, redirect, render_template, request, url_for
-
-from .. import activity, db, notify, planning, projects, tasks as task_list, workflow
+from .. import activity, db, notify, permissions as can, planning, projects, search as finder, tasks as task_list, workflow
 from ..auth import login_required
 from ..dates import to_local, today, utcnow
-from ..models import Notification
+from ..models import DONE, IN_PROGRESS, REVIEW, Notification
 
 bp = Blueprint("main", __name__)
 
@@ -63,11 +61,18 @@ def my_tasks():
 @bp.get("/calendar")
 @login_required
 def calendar():
-    year, month = planning.month_of(request.args.get("month"))
-    previous, following = planning.next_and_previous(year, month)
-    return render_template("calendar.html", weeks=planning.calendar(db.session(), g.user, year, month),
-                           month_name=f"{month_name[month]} {year}", previous=previous, following=following,
-                           project=None)
+    return render_template("calendar.html", project=None,
+                           **planning.calendar_page(db.session(), g.user, request.args))
+
+
+@bp.get("/search")
+@login_required
+def search():
+    s = db.session()
+    text = finder.clean(request.args.get("q"))
+    found_projects, found_tasks = finder.find(s, g.user, text)
+    return render_template("search.html", text=text, found_projects=found_projects, found_tasks=found_tasks,
+                           recent=projects.visible(s, g.user))
 
 
 # ---------- Inbox ----------
@@ -75,7 +80,18 @@ def calendar():
 @bp.get("/inbox")
 @login_required
 def inbox():
-    return render_template("inbox.html", notes=notify.inbox(db.session(), g.user))
+    s = db.session()
+    show = request.args.get("show") if request.args.get("show") in notify.FILTERS else None
+    notes = notify.inbox(s, g.user, show)
+    # Approve and Send back, right in the Inbox: only on a review that is still waiting,
+    # and only the buttons this person may press (the same rules as the board).
+    actions = {}
+    for note in notes:
+        if note.kind == "review" and note.task is not None and note.task.status == REVIEW:
+            moves = dict(workflow.allowed_moves(can.access_for(s, g.user, note.project), note.task))
+            actions[note.id] = [(to, moves[to]) for to in (IN_PROGRESS, DONE) if to in moves]
+    return render_template("inbox.html", notes=notes, show=show, actions=actions,
+                           unread_total=notify.unread_count(s, g.user))
 
 
 @bp.get("/inbox/<int:note_id>")
@@ -93,6 +109,29 @@ def open_note(note_id):
         anchor = f"#comment-{note.comment_id}" if note.comment_id else ""
         return redirect(url_for("tasks.show", project_id=note.project_id, number=note.task.number) + anchor)
     return redirect(url_for("tasks.board", project_id=note.project_id))
+
+
+@bp.post("/inbox/<int:note_id>/review")
+@login_required
+def review_from_inbox(note_id):
+    """Approve or send back the task a review note is about, then mark the note read."""
+    s = db.session()
+    note = s.get(Notification, note_id)
+    if note is None or note.user_id != g.user.id or note.task is None:
+        abort(404)
+    to = request.form.get("to")
+    if to not in (DONE, IN_PROGRESS):
+        abort(400)
+    task = note.task
+    problem = workflow.move(s, can.access_for(s, g.user, note.project), task, to)
+    if problem:
+        s.rollback()
+        flash(problem)
+    else:
+        note.read_at = note.read_at or utcnow()
+        s.commit()
+        flash(f"{task.key} {'is Done' if to == DONE else 'went back to In Progress'}.")
+    return redirect(url_for("main.inbox", show=request.form.get("show") or None))
 
 
 @bp.post("/inbox/read")

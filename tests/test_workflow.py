@@ -141,3 +141,13 @@ def test_the_board_shows_only_the_moves_you_may_make(app, team):
     assert f'id="task-{number}"' in member_board
     assert 'data-moves="in_progress done"' in manager_board
     assert 'data-moves="in_progress"' in member_board
+
+
+def test_sending_back_from_review_writes_its_own_history(app):
+    """Send back (In Review -> In Progress) has its own words in the history."""
+    owner, member = make_user(app, "olga"), make_user(app, "mel")
+    project = make_project(app, owner, people={member: MEMBER})
+    number = make_task(app, project, owner, "Check me", status="review", assignee_id=member)
+    response = post(browser(app, owner), f"/projects/{project}/tasks/{number}/move", {"to": "in_progress"})
+    assert response.status_code == 302
+    assert b"back to In Progress" in browser(app, owner).get(f"/projects/{project}/activity").data

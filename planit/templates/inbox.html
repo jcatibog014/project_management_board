@@ -2,18 +2,22 @@
 {% from "_macros.html" import csrf, avatar %}
 {% block title %}Inbox - {{ APP_NAME }}{% endblock %}
 {% block content %}
-  {% set unread_here = notes|selectattr('read_at', 'none')|list|length %}
   <div class="page-head">
     <div>
       <h1>Inbox</h1>
-      <p class="lead">{% if unread_here %}{{ unread_here }} new {{ 'thing needs' if unread_here == 1 else 'things need' }} you.{% else %}You're all caught up.{% endif %}</p>
+      <p class="lead">{% if unread_total %}{{ unread_total }} new {{ 'thing needs' if unread_total == 1 else 'things need' }} you.{% else %}You're all caught up.{% endif %}</p>
     </div>
-    {% if unread_here %}
+    {% if unread_total %}
       <form method="post" action="{{ url_for('main.read_all') }}" class="head-actions">
         {{ csrf() }}<button class="button button-quiet" type="submit">Mark all read</button>
       </form>
     {% endif %}
   </div>
+  <nav class="segmented inbox-filters" aria-label="Show">
+    {% for value, text in ((None, 'All'), ('mentions', 'Mentions'), ('assigned', 'Assigned'), ('reviews', 'Reviews')) %}
+      <a href="{{ url_for('main.inbox', show=value) }}"{% if show == value %} aria-current="page"{% endif %}>{{ text }}</a>
+    {% endfor %}
+  </nav>
   {% if notes %}
     <ul class="inbox">
       {% for note in notes %}
@@ -22,7 +26,7 @@
         <li class="note{% if not note.read_at %} is-unread{% endif %}">
           {{ avatar(note.actor) }}
           <div class="note-text">
-            <p>{{ who }}
+            <p>{% if not note.read_at %}<span class="visually-hidden">New: </span>{% endif %}<span class="note-who">{{ who }}</span>
               {% if note.kind == 'mentioned' %}mentioned you on
               {% elif note.kind == 'assigned' %}gave you
               {% elif note.kind == 'review' %}asks for a review of
@@ -34,11 +38,25 @@
               {% endif %}
               <a href="{{ url_for('main.open_note', note_id=note.id) }}">{{ what }}</a>{% if note.task %} <span class="muted">in {{ note.project.name }}</span>{% endif %}</p>
             {% if note.comment %}<p class="note-quote">"{{ note.comment.body|truncate(140) }}"</p>{% endif %}
+            {% if actions.get(note.id) %}
+              <div class="note-actions">
+                {% for to, label in actions[note.id] %}
+                  <form method="post" action="{{ url_for('main.review_from_inbox', note_id=note.id) }}">
+                    {{ csrf() }}
+                    <input type="hidden" name="to" value="{{ to }}">
+                    {% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+                    <button class="button button-small{% if to == 'done' %} button-positive{% else %} button-quiet{% endif %}" type="submit">{{ label }}</button>
+                  </form>
+                {% endfor %}
+              </div>
+            {% endif %}
           </div>
           <time datetime="{{ note.created_at.isoformat() }}Z" title="{{ note.created_at|nice_datetime }}">{{ note.created_at|ago }}</time>
         </li>
       {% endfor %}
     </ul>
+  {% elif show %}
+    <p class="empty-line">Nothing here. <a href="{{ url_for('main.inbox') }}">Show everything</a></p>
   {% else %}
     <div class="empty-state">
       <h2>Nothing Yet</h2>
