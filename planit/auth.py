@@ -19,7 +19,7 @@ from datetime import timedelta
 import click
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 from flask.cli import with_appcontext
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -51,6 +51,9 @@ DEMO_LIFETIME = timedelta(hours=24)
 # What the demo's View As can play in its team projects. Owning stays real:
 # only the actual owner can archive, delete or transfer.
 VIEW_AS_ROLES = ("manager", "member", "viewer")
+# Each demo adds about 40 tasks. This many at once is plenty, and keeps someone
+# pressing Try Demo in a loop from filling the free database.
+MAX_DEMOS = 300
 
 
 # ---------- Users in the database ----------
@@ -163,6 +166,10 @@ def start_demo(s, moment):
     from . import seed
 
     purge_demos(s, moment)
+    visitors = s.scalar(select(func.count()).select_from(User)
+                        .where(User.is_demo.is_(True), User.username.like("demo-%-sam")))
+    if visitors >= MAX_DEMOS:
+        return None
     tag = secrets.token_hex(4)
     # Nobody knows this password: a demo is only opened with the button (and
     # find_user() never finds demo users, so the login form can't open one).
@@ -279,6 +286,9 @@ def login():
 def demo():
     s = db.session()
     user = start_demo(s, utcnow())
+    if user is None:
+        flash("The demo is very busy right now. Please try again later, or sign up.")
+        return redirect(url_for("auth.login"))
     s.commit()
     log_in(user)
     flash("Welcome to the demo! You are Sam Rivera at Orbit Labs. Try every role with View As in the menu.")

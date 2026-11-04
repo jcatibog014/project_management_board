@@ -202,6 +202,17 @@ def test_old_demos_are_deleted_with_everything_in_them(app):
     assert count(app, Task) > 0
 
 
+def test_too_many_demos_at_once_are_refused(app, monkeypatch):
+    monkeypatch.setattr(auth, "MAX_DEMOS", 1)
+    start_demo(app)
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["csrf"] = CSRF
+    response = post(client, "/demo")
+    assert "/login" in response.location
+    assert count(app, User, User.username.like("demo-%-sam")) == 1
+
+
 def test_purge_demos_command(app):
     start_demo(app)
     result = app.test_cli_runner().invoke(args=["purge-demos"])
