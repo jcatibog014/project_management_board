@@ -771,3 +771,5 @@ input[type="date"] { height: var(--control-height); padding-top: 0; padding-bott
 .project-card { display: flex; flex-direction: column; }
 .project-card .progress-row { margin-top: auto; }
 .project-card .project-card-desc + .project-card-foot, .project-card h2 + .project-card-foot { margin-top: auto; }
+.cal-deadline { border-left-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); font-weight: 600; }
+.task-row > .status-pill { width: 0.5rem; }

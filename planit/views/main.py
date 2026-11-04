@@ -1,10 +1,12 @@
-"""The pages that gather work from every project: Home and the Inbox. Also what
+"""The pages that gather work from every project: Home, My Tasks, Calendar and the Inbox. Also what
 every page needs: the sidebar's project list, the unread count and the project tabs."""
-from flask import Blueprint, abort, g, redirect, render_template, url_for
+from calendar import month_name
 
-from .. import db, notify, projects, workflow
+from flask import Blueprint, abort, g, redirect, render_template, request, url_for
+
+from .. import activity, db, notify, planning, projects, tasks as task_list, workflow
 from ..auth import login_required
-from ..dates import today, utcnow
+from ..dates import to_local, today, utcnow
 from ..models import Notification
 
 bp = Blueprint("main", __name__)
@@ -12,7 +14,8 @@ bp = Blueprint("main", __name__)
 
 def project_tabs(project):
     """(name, endpoint, label) of the tabs at the top of a project."""
-    tabs = [("board", "tasks.board", "Board"), ("activity", "tasks.history", "Activity")]
+    tabs = [("board", "tasks.board", "Board"), ("list", "tasks.task_list_view", "List"),
+            ("calendar", "tasks.project_calendar", "Calendar"), ("activity", "tasks.history", "Activity")]
     if project.is_team:
         tabs.append(("members", "projects.members", "Members"))
     tabs.append(("settings", "projects.settings", "Settings"))
@@ -29,10 +32,41 @@ def everywhere():
             "today": today, "unread": unread}
 
 
+def greeting():
+    hour = to_local(utcnow()).hour
+    return "Good morning" if hour < 12 else "Good afternoon" if hour < 18 else "Good evening"
+
+
 @bp.get("/")
 @login_required
 def home():
-    return render_template("home.html")
+    s = db.session()
+    day = today()
+    mine = planning.my_open_tasks(s, g.user)
+    counts = {name: len(rows) for name, rows in planning.grouped(mine, day)}
+    active = projects.visible(s, g.user)
+    return render_template(
+        "home.html", greeting=greeting(), mine=mine[:6], counts=counts, open_count=len(mine),
+        review=planning.waiting_for_review(s, g.user), active=active, stats=task_list.project_stats(s, active),
+        feed=activity.for_projects(s, projects.visible_filter(g.user), limit=10))
+
+
+@bp.get("/my-tasks")
+@login_required
+def my_tasks():
+    s = db.session()
+    return render_template("my_tasks.html", groups=planning.grouped(planning.my_open_tasks(s, g.user)),
+                           review=planning.waiting_for_review(s, g.user))
+
+
+@bp.get("/calendar")
+@login_required
+def calendar():
+    year, month = planning.month_of(request.args.get("month"))
+    previous, following = planning.next_and_previous(year, month)
+    return render_template("calendar.html", weeks=planning.calendar(db.session(), g.user, year, month),
+                           month_name=f"{month_name[month]} {year}", previous=previous, following=following,
+                           project=None)
 
 
 # ---------- Inbox ----------

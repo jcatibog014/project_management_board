@@ -5,9 +5,11 @@ Moves come from the board's drag and drop (fetch, answered with JSON) or from
 the Move buttons (a plain form, answered with a redirect). Both go through
 workflow.move(), so the rules are the same.
 """
+from calendar import month_name
+
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
-from .. import activity, comments, db, permissions as can, projects, tasks as task_list, workflow
+from .. import activity, comments, db, permissions as can, planning, projects, tasks as task_list, workflow
 from ..auth import login_required, safe_next
 from ..dates import utcnow
 from ..models import STATUSES, User, WipLimit
@@ -240,6 +242,31 @@ def assign(project_id, number):
         flash(f"{task.key} is now {'with ' + user.display_name if user else 'unassigned'}.")
     s.commit()
     return go_back(project, task)
+
+
+# ---------- List and Calendar ----------
+
+@bp.get("/projects/<int:project_id>/list")
+@login_required
+def task_list_view(project_id):
+    project, access = load(project_id)
+    s = db.session()
+    people, labels = projects.assignable(s, project), task_list.project_labels(s, project)
+    filters = planning.clean_filters(request.args, people, labels)
+    return render_template("project/list.html", project=project, access=access, people=people, labels=labels,
+                           filters=filters, rows=planning.filtered(s, project, g.user, filters),
+                           priorities=task_list.PRIORITY_NAMES, due_filters=planning.DUE_FILTERS)
+
+
+@bp.get("/projects/<int:project_id>/calendar")
+@login_required
+def project_calendar(project_id):
+    project, access = load(project_id)
+    year, month = planning.month_of(request.args.get("month"))
+    previous, following = planning.next_and_previous(year, month)
+    return render_template("calendar.html", weeks=planning.calendar(db.session(), g.user, year, month, project),
+                           month_name=f"{month_name[month]} {year}", previous=previous, following=following,
+                           project=project, access=access)
 
 
 # ---------- History and limits ----------

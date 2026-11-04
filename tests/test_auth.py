@@ -177,5 +177,5 @@ def test_health_check(client):
 def test_the_login_and_home_pages_draw(app, client):
     assert b"Your projects, in orbit." in client.get("/login").data
     log_in_as(client, make_user(app, "ana", "Ana"))
-    assert b"Hello, Ana" in client.get("/").data
+    assert re.search(rb"Good (morning|afternoon|evening), Ana", client.get("/").data)
     assert CSRF  # the session's token is the one the test set

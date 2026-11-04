@@ -13,6 +13,8 @@
     <nav aria-label="Main">
       <ul class="side-links">
         <li><a href="{{ url_for('main.home') }}"{% if page == 'main.home' %} aria-current="page"{% endif %}>{{ icon('home') }} Home</a></li>
+        <li><a href="{{ url_for('main.my_tasks') }}"{% if page == 'main.my_tasks' %} aria-current="page"{% endif %}>{{ icon('tasks') }} My Tasks</a></li>
+        <li><a href="{{ url_for('main.calendar') }}"{% if page == 'main.calendar' %} aria-current="page"{% endif %}>{{ icon('calendar') }} Calendar</a></li>
         {% set waiting = unread() %}
         <li><a href="{{ url_for('main.inbox') }}"{% if page == 'main.inbox' %} aria-current="page"{% endif %}>{{ icon('inbox') }} Inbox
           {% if waiting %}<span class="count" title="{{ waiting }} unread">{{ waiting }}<span class="visually-hidden"> unread</span></span>{% endif %}</a></li>

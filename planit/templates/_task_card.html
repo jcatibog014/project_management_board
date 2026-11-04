@@ -65,3 +65,25 @@
   </div>
 </article>
 {% endmacro %}
+
+{# A task as one row (Home, My Tasks, a project's List). #}
+{% macro task_row(task, show_project=True) %}
+<article class="task-row status-{{ task.status }}">
+  <span class="status-pill status-{{ task.status }}" title="{{ workflow.name(task.status) }}"><span class="visually-hidden">{{ workflow.name(task.status) }}</span></span>
+  <div class="task-row-main">
+    <a class="task-row-title" href="{{ url_for('tasks.show', project_id=task.project_id, number=task.number) }}">{{ task.title }}</a>
+    <div class="task-row-sub">
+      <span class="task-key">{{ task.key }}</span>
+      {% if show_project %}<span><span class="dot color-{{ task.project.color }}" aria-hidden="true"></span> {{ task.project.name }}</span>{% endif %}
+      {% if not show_project %}<span>{{ workflow.name(task.status) }}</span>{% endif %}
+      {{ label_chips(task) }}
+    </div>
+  </div>
+  <div class="task-row-end">
+    {{ priority_badge(task) }}
+    {{ due_badge(task) }}
+    {% if task.checklist %}<span class="meta-item small muted">{{ icon('checklist', 13) }} {{ task.checked }}/{{ task.checklist|length }}</span>{% endif %}
+    {{ avatar(task.assignee, 'small') }}
+  </div>
+</article>
+{% endmacro %}
